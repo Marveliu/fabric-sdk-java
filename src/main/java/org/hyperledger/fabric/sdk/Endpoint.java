@@ -62,6 +62,9 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.hyperledger.fabric.sdk.helper.Utils.parseGrpcUrl;
 
+/**
+ * 端点，包括远程node的host和port等
+ */
 class Endpoint {
     private static final Log logger = LogFactory.getLog(Endpoint.class);
 
@@ -77,8 +80,16 @@ class Endpoint {
 
     private static final Map<String, String> CN_CACHE = Collections.synchronizedMap(new HashMap<>());
 
+    /**
+     * 构建端点
+     *
+     * @param url        gprc格式的url
+     * @param properties
+     */
     Endpoint(String url, Properties properties) {
+
         logger.trace(format("Creating endpoint for url %s", url));
+
         this.url = url;
         String cn = null;
         String sslp = null;
@@ -86,6 +97,8 @@ class Endpoint {
         byte[] pemBytes = null;
         X509Certificate[] clientCert = null;
         PrivateKey clientKey = null;
+
+
         Properties purl = parseGrpcUrl(url);
         String protocol = purl.getProperty("protocol");
         this.addr = purl.getProperty("host");
@@ -115,9 +128,7 @@ class Endpoint {
                     if (properties.containsKey("pemFile")) {
 
                         String pemFile = properties.getProperty("pemFile");
-
                         String[] pems = pemFile.split("[ \t]*,[ \t]*");
-
                         for (String pem : pems) {
                             if (null != pem && !pem.isEmpty()) {
                                 try {
@@ -132,7 +143,6 @@ class Endpoint {
                     }
                     pemBytes = bis.toByteArray();
                     logger.trace(format("Endpoint %s pemBytes: %s", url, Hex.encodeHexString(pemBytes)));
-
                     if (pemBytes.length == 0) {
                         pemBytes = null;
                     }
@@ -165,6 +175,7 @@ class Endpoint {
                                         + e.getMessage());
                     }
                 }
+
                 // check for mutual TLS - both clientKey and clientCert must be present
                 byte[] ckb = null, ccb = null;
                 if (properties.containsKey("clientKeyFile") && properties.containsKey("clientKeyBytes")) {
@@ -192,6 +203,7 @@ class Endpoint {
                     }
                 }
 
+                // 用clientKey 和 cientCert 构建证书
                 if ((ckb != null) && (ccb != null)) {
                     String what = "private key";
                     byte[] whatBytes = new byte[0];
@@ -204,7 +216,7 @@ class Endpoint {
                         what = "certificate";
                         whatBytes = ccb;
                         logger.trace("client TLS certificate bytes:" + Hex.encodeHexString(ccb));
-                        clientCert = new X509Certificate[] {(X509Certificate) cp.bytesToCertificate(ccb)};
+                        clientCert = new X509Certificate[]{(X509Certificate) cp.bytesToCertificate(ccb)};
                         logger.trace("converted client TLS certificate.");
                         tlsClientCertificatePEMBytes = ccb; // Save this away it's the exact pem we used.
                     } catch (CryptoException e) {
@@ -213,8 +225,8 @@ class Endpoint {
                     }
                 }
 
+                /// ssl
                 sslp = properties.getProperty("sslProvider");
-
                 if (null == sslp) {
                     sslp = SSLPROVIDER;
                     logger.trace(format("Endpoint %s specific SSL provider not found use global value: %s ", url, SSLPROVIDER));
@@ -237,6 +249,7 @@ class Endpoint {
 
         try {
             if (protocol.equalsIgnoreCase("grpc")) {
+                // 构建netty channel
                 this.channelBuilder = NettyChannelBuilder.forAddress(addr, port).usePlaintext(true);
                 addNettyBuilderProps(channelBuilder, properties);
             } else if (protocol.equalsIgnoreCase("grpcs")) {
@@ -245,8 +258,8 @@ class Endpoint {
                     this.channelBuilder = NettyChannelBuilder.forAddress(addr, port);
                     addNettyBuilderProps(channelBuilder, properties);
                 } else {
+                    // 带ssl的grpc请求
                     try {
-
                         logger.trace(format("Endpoint %s Negotiation type: '%s', SSLprovider: '%s'", url, nt, sslp));
                         SslProvider sslprovider = sslp.equals("openSSL") ? SslProvider.OPENSSL : SslProvider.JDK;
                         NegotiationType ntype = nt.equals("TLS") ? NegotiationType.TLS : NegotiationType.PLAINTEXT;
@@ -273,7 +286,6 @@ class Endpoint {
                         }
                         addNettyBuilderProps(channelBuilder, properties);
                     } catch (SSLException sslex) {
-
                         throw new RuntimeException(sslex);
                     }
                 }
@@ -337,26 +349,25 @@ class Endpoint {
             if (methodprop == null) {
                 continue;
             }
+
+            // 匹配grpc相关的配置
             String methodprops = String.valueOf(methodprop);
-
             Matcher match = METHOD_PATTERN.matcher(methodprops);
-
             String methodName = null;
 
             if (match.matches() && match.groupCount() == 1) {
                 methodName = match.group(1).trim();
 
             }
-            if (null == methodName || "forAddress".equals(methodName) || "build".equals(methodName)) {
 
+            if (null == methodName || "forAddress".equals(methodName) || "build".equals(methodName)) {
                 continue;
             }
 
             Object parmsArrayO = es.getValue();
             Object[] parmsArray;
             if (!(parmsArrayO instanceof Object[])) {
-                parmsArray = new Object[] {parmsArrayO};
-
+                parmsArray = new Object[]{parmsArrayO};
             } else {
                 parmsArray = (Object[]) parmsArrayO;
             }
@@ -387,8 +398,8 @@ class Endpoint {
                 }
             }
 
+            // 反射调用方法
             final Method method = channelBuilder.getClass().getMethod(methodName, classParms);
-
             method.invoke(channelBuilder, parmsArray);
 
             if (logger.isTraceEnabled()) {
@@ -403,9 +414,7 @@ class Endpoint {
                         method, sb.toString()));
 
             }
-
         }
-
     }
 
     AbstractMap.SimpleImmutableEntry<PrivateKey, X509Certificate[]> getClientTLSProps(Properties properties) {
@@ -457,7 +466,7 @@ class Endpoint {
                 what = "certificate";
                 whatBytes = ccb;
                 logger.trace("client TLS certificate bytes:" + Hex.encodeHexString(ccb));
-                X509Certificate[] clientCert = new X509Certificate[] {(X509Certificate) cp.bytesToCertificate(ccb)};
+                X509Certificate[] clientCert = new X509Certificate[]{(X509Certificate) cp.bytesToCertificate(ccb)};
                 logger.trace("converted client TLS certificate.");
                 tlsClientCertificatePEMBytes = ccb; // Save this away it's the exact pem we used.
 
@@ -483,9 +492,7 @@ class Endpoint {
     }
 
     static Endpoint createEndpoint(String url, Properties properties) {
-
         return new Endpoint(url, properties);
-
     }
 
 }

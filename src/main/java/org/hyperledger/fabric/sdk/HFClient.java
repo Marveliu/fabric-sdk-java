@@ -205,26 +205,21 @@ public class HFClient {
 
     public Channel newChannel(String name, Orderer orderer, ChannelConfiguration channelConfiguration,
                               byte[]... channelConfigurationSignatures) throws TransactionException, InvalidArgumentException {
-
         clientCheck();
         if (Utils.isNullOrEmpty(name)) {
             throw new InvalidArgumentException("Channel name can not be null or empty string.");
         }
 
+        // 同步方式创建channels
         synchronized (channels) {
-
             if (channels.containsKey(name)) {
                 throw new InvalidArgumentException(format("Channel by the name %s already exits", name));
             }
-
             logger.trace("Creating channel :" + name);
-
             Channel newChannel = Channel.createNewInstance(name, this, orderer, channelConfiguration,
                     channelConfigurationSignatures);
-
             channels.put(name, newChannel);
             return newChannel;
-
         }
 
     }
@@ -667,12 +662,16 @@ public class HFClient {
 
     }
 
+    /**
+     * 检查用户上下文
+     *
+     * @throws InvalidArgumentException
+     */
     private void clientCheck() throws InvalidArgumentException {
 
         if (null == cryptoSuite) {
             throw new InvalidArgumentException("No cryptoSuite has been set.");
         }
-
         userContextCheck(userContext);
 
     }

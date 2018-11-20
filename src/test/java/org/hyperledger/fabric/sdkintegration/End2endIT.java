@@ -168,6 +168,7 @@ public class End2endIT {
         for (SampleOrg sampleOrg : testSampleOrgs) {
             String caName = sampleOrg.getCAName(); //Try one of each name and no name.
             if (caName != null && !caName.isEmpty()) {
+                // 创建HFCA
                 sampleOrg.setCAClient(HFCAClient.createNewInstance(caName, sampleOrg.getCALocation(), sampleOrg.getCAProperties()));
             } else {
                 sampleOrg.setCAClient(HFCAClient.createNewInstance(sampleOrg.getCALocation(), sampleOrg.getCAProperties()));
@@ -200,7 +201,6 @@ public class End2endIT {
 
         //Create instance of client.
         HFClient client = HFClient.createNewInstance();
-
         client.setCryptoSuite(CryptoSuite.Factory.getCryptoSuite());
 
         ////////////////////////////
@@ -453,6 +453,7 @@ public class End2endIT {
 
                 Collection<Peer> peers = channel.getPeers();
                 numInstallProposal = numInstallProposal + peers.size();
+                // 发送安装提案
                 responses = client.sendInstallProposal(installProposalRequest, peers);
 
                 for (ProposalResponse response : responses) {
@@ -485,12 +486,13 @@ public class End2endIT {
             instantiateProposalRequest.setChaincodeID(chaincodeID);
             instantiateProposalRequest.setChaincodeLanguage(CHAIN_CODE_LANG);
             instantiateProposalRequest.setFcn("init");
-            instantiateProposalRequest.setArgs(new String[] {"a", "500", "b", "" + (200 + delta)});
+            instantiateProposalRequest.setArgs(new String[]{"a", "500", "b", "" + (200 + delta)});
             Map<String, byte[]> tm = new HashMap<>();
             tm.put("HyperLedgerFabric", "InstantiateProposalRequest:JavaSDK".getBytes(UTF_8));
             tm.put("method", "InstantiateProposalRequest".getBytes(UTF_8));
             instantiateProposalRequest.setTransientMap(tm);
 
+            // 配置chaincode 背书的策略
             /*
               policy OR(Org1MSP.member, Org2MSP.member) meaning 1 signature from someone in either Org1 or Org2
               See README.md Chaincode endorsement policies section for more details.
@@ -685,7 +687,7 @@ public class End2endIT {
                     String expect = "" + (300 + delta);
                     out("Now query chaincode for the value of b.");
                     QueryByChaincodeRequest queryByChaincodeRequest = client.newQueryProposalRequest();
-                    queryByChaincodeRequest.setArgs(new String[] {"b"});
+                    queryByChaincodeRequest.setArgs(new String[]{"b"});
                     queryByChaincodeRequest.setFcn("query");
                     queryByChaincodeRequest.setChaincodeID(chaincodeID);
 
@@ -815,46 +817,42 @@ public class End2endIT {
         ////////////////////////////
         //Construct the channel
         //
-
         out("Constructing channel %s", name);
 
         //boolean doPeerEventing = false;
         boolean doPeerEventing = !testConfig.isRunningAgainstFabric10() && BAR_CHANNEL_NAME.equals(name);
-//        boolean doPeerEventing = !testConfig.isRunningAgainstFabric10() && FOO_CHANNEL_NAME.equals(name);
+        // boolean doPeerEventing = !testConfig.isRunningAgainstFabric10() && FOO_CHANNEL_NAME.equals(name);
         //Only peer Admin org
+        // 获得节点的管理员
         SampleUser peerAdmin = sampleOrg.getPeerAdmin();
+        // 切换到管理员上下文
         client.setUserContext(peerAdmin);
-
+        // 获得order节点列表
         Collection<Orderer> orderers = new LinkedList<>();
-
         for (String orderName : sampleOrg.getOrdererNames()) {
-
             Properties ordererProperties = testConfig.getOrdererProperties(orderName);
-
-            //example of setting keepAlive to avoid timeouts on inactive http2 connections.
+            // example of setting keepAlive to avoid timeouts on inactive http2 connections.
             // Under 5 minutes would require changes to server side to accept faster ping rates.
-            ordererProperties.put("grpc.NettyChannelBuilderOption.keepAliveTime", new Object[] {5L, TimeUnit.MINUTES});
-            ordererProperties.put("grpc.NettyChannelBuilderOption.keepAliveTimeout", new Object[] {8L, TimeUnit.SECONDS});
-            ordererProperties.put("grpc.NettyChannelBuilderOption.keepAliveWithoutCalls", new Object[] {true});
-
+            ordererProperties.put("grpc.NettyChannelBuilderOption.keepAliveTime", new Object[]{5L, TimeUnit.MINUTES});
+            ordererProperties.put("grpc.NettyChannelBuilderOption.keepAliveTimeout", new Object[]{8L, TimeUnit.SECONDS});
+            ordererProperties.put("grpc.NettyChannelBuilderOption.keepAliveWithoutCalls", new Object[]{true});
             orderers.add(client.newOrderer(orderName, sampleOrg.getOrdererLocation(orderName),
                     ordererProperties));
         }
-
         //Just pick the first orderer in the list to create the channel.
-
         Orderer anOrderer = orderers.iterator().next();
         orderers.remove(anOrderer);
-
+        // 还是要通过生成的channel tx, 构建channel
         String path = TEST_FIXTURES_PATH + "/sdkintegration/e2e-2Orgs/" + testConfig.getFabricConfigGenVers() + "/" + name + ".tx";
         ChannelConfiguration channelConfiguration = new ChannelConfiguration(new File(path));
-
-        //Create channel that has only one signer that is this orgs peer admin. If channel creation policy needed more signature they would need to be added too.
+        // Create channel that has only one signer that is this orgs peer admin. If channel creation policy needed more signature they would need to be added too.
         Channel newChannel = client.newChannel(name, anOrderer, channelConfiguration, client.getChannelConfigurationSignature(channelConfiguration, peerAdmin));
 
         out("Created channel %s", name);
 
-        boolean everyother = true; //test with both cases when doing peer eventing.
+        // todo: Read
+        // test with both cases when doing peer eventing.
+        boolean everyother = true;
         for (String peerName : sampleOrg.getPeerNames()) {
             String peerLocation = sampleOrg.getPeerLocation(peerName);
 
@@ -867,9 +865,10 @@ public class End2endIT {
             peerProperties.put("grpc.NettyChannelBuilderOption.maxInboundMessageSize", 9000000);
 
             Peer peer = client.newPeer(peerName, peerLocation, peerProperties);
+            // channel 加入peer
             if (testConfig.isFabricVersionAtOrAfter("1.3")) {
+                // 设置peer的权限
                 newChannel.joinPeer(peer, createPeerOptions().setPeerRoles(EnumSet.of(PeerRole.ENDORSING_PEER, PeerRole.LEDGER_QUERY, PeerRole.CHAINCODE_QUERY, PeerRole.EVENT_SOURCE))); //Default is all roles.
-
             } else {
                 if (doPeerEventing && everyother) {
                     newChannel.joinPeer(peer, createPeerOptions().setPeerRoles(EnumSet.of(PeerRole.ENDORSING_PEER, PeerRole.LEDGER_QUERY, PeerRole.CHAINCODE_QUERY, PeerRole.EVENT_SOURCE))); //Default is all roles.
@@ -892,13 +891,11 @@ public class End2endIT {
             newChannel.addOrderer(orderer);
         }
 
+        // EventHub
         for (String eventHubName : sampleOrg.getEventHubNames()) {
-
             final Properties eventHubProperties = testConfig.getEventHubProperties(eventHubName);
-
-            eventHubProperties.put("grpc.NettyChannelBuilderOption.keepAliveTime", new Object[] {5L, TimeUnit.MINUTES});
-            eventHubProperties.put("grpc.NettyChannelBuilderOption.keepAliveTimeout", new Object[] {8L, TimeUnit.SECONDS});
-
+            eventHubProperties.put("grpc.NettyChannelBuilderOption.keepAliveTime", new Object[]{5L, TimeUnit.MINUTES});
+            eventHubProperties.put("grpc.NettyChannelBuilderOption.keepAliveTimeout", new Object[]{8L, TimeUnit.SECONDS});
             EventHub eventHub = client.newEventHub(eventHubName, sampleOrg.getEventHubLocation(eventHubName),
                     eventHubProperties);
             newChannel.addEventHub(eventHub);

@@ -56,6 +56,10 @@ class OrdererClient {
 
     /**
      * Construct client for accessing Orderer server using the existing managedChannel.
+     *
+     * @param orderer
+     * @param channelBuilder netty channel
+     * @param properties
      */
     OrdererClient(Orderer orderer, ManagedChannelBuilder<?> channelBuilder, Properties properties) {
 
@@ -65,22 +69,17 @@ class OrdererClient {
         channelName = orderer.getChannel().getName();
         toString = "OrdererClient{" + "id: " + config.getNextID() + ", channel: " + channelName + ", name: " + name + ", url: " + url + "}";
 
+        // 设置等待时间
         if (null == properties) {
-
             ordererWaitTimeMilliSecs = ORDERER_WAIT_TIME;
-
         } else {
-
             String ordererWaitTimeMilliSecsString = properties.getProperty("ordererWaitTimeMilliSecs", Long.toString(ORDERER_WAIT_TIME));
-
             long tempOrdererWaitTimeMilliSecs = ORDERER_WAIT_TIME;
-
             try {
                 tempOrdererWaitTimeMilliSecs = Long.parseLong(ordererWaitTimeMilliSecsString);
             } catch (NumberFormatException e) {
                 logger.warn(format("Orderer %s wait time %s not parsable.", toString(), ordererWaitTimeMilliSecsString), e);
             }
-
             ordererWaitTimeMilliSecs = tempOrdererWaitTimeMilliSecs;
         }
 
@@ -131,8 +130,16 @@ class OrdererClient {
         shutdown(true);
     }
 
+    /**
+     * 发送交易, 懒汉创建managedChannel
+     *
+     * @param envelope
+     * @return
+     * @throws Exception
+     */
     Ab.BroadcastResponse sendTransaction(Common.Envelope envelope) throws Exception {
         logger.trace(toString() + " OrdererClient.sendTransaction entered.");
+
         StreamObserver<Common.Envelope> nso = null;
 
         if (shutdown) {
@@ -140,20 +147,19 @@ class OrdererClient {
         }
 
         ManagedChannel lmanagedChannel = managedChannel;
+
         if (IS_TRACE_LEVEL && lmanagedChannel != null) {
             logger.trace(format("%s  managed channel isTerminated: %b, isShutdown: %b, state: %s", toString(),
                     lmanagedChannel.isTerminated(), lmanagedChannel.isShutdown(), lmanagedChannel.getState(false).name()));
         }
 
         if (lmanagedChannel == null || lmanagedChannel.isTerminated() || lmanagedChannel.isShutdown()) {
-
             if (lmanagedChannel != null && lmanagedChannel.isTerminated()) {
                 logger.warn(format("%s managed channel was marked terminated", toString()));
             }
             if (lmanagedChannel != null && lmanagedChannel.isShutdown()) {
                 logger.warn(format("%s managed channel was marked shutdown.", toString()));
             }
-
             lmanagedChannel = channelBuilder.build();
             managedChannel = lmanagedChannel;
 
@@ -165,12 +171,15 @@ class OrdererClient {
         }
 
         try {
+
+            // gprc 原子广播
             final CountDownLatch finishLatch = new CountDownLatch(1);
             AtomicBroadcastGrpc.AtomicBroadcastStub broadcast = AtomicBroadcastGrpc.newStub(lmanagedChannel);
 
             final Ab.BroadcastResponse[] ret = new Ab.BroadcastResponse[1];
-            final Throwable[] throwable = new Throwable[] {null};
+            final Throwable[] throwable = new Throwable[]{null};
 
+            // 定义订阅类
             StreamObserver<Ab.BroadcastResponse> so = new StreamObserver<Ab.BroadcastResponse>() {
                 @Override
                 public void onNext(Ab.BroadcastResponse resp) {
@@ -183,7 +192,6 @@ class OrdererClient {
                                 channelName, name, resp.getStatusValue(), resp.getStatus().name()));
                     }
                     finishLatch.countDown();
-
                 }
 
                 @Override
@@ -214,11 +222,13 @@ class OrdererClient {
                 }
             };
 
+            // 双方都是长链接，发送envelope
             nso = broadcast.broadcast(so);
-
             nso.onNext(envelope);
 
             try {
+
+                // 时间等待 CountDownLatch
                 if (!finishLatch.await(ordererWaitTimeMilliSecs, TimeUnit.MILLISECONDS)) {
                     TransactionException ste = new TransactionException(format("Channel %s, send transactions failed on orderer %s. Reason:  timeout after %d ms.",
                             channelName, toString(), ordererWaitTimeMilliSecs));
@@ -244,21 +254,17 @@ class OrdererClient {
                 logger.error(toString(), e);
 
             }
-
             return ret[0];
         } catch (Throwable t) {
             managedChannel = null;
             throw t;
-
         } finally {
-
             if (null != nso) {
-
                 try {
+                    // 关闭netty
                     nso.onCompleted();
                 } catch (Exception e) {  //Best effort only report on debug
-                    logger.debug(format("Exception completing sendTransaction with %s %s",
-                            toString(), e.getMessage()), e);
+                    logger.debug(format("Exception completing sendTransaction with %s %s", toString(), e.getMessage()), e);
                 }
             }
 

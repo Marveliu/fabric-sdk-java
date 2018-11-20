@@ -1276,7 +1276,7 @@ public class ServiceDiscovery {
         }
 
         if (seviceDiscovery == null) {
-
+            // 线程进行服务发现
             seviceDiscovery = Executors.newSingleThreadScheduledExecutor(r -> {
                 Thread t = Executors.defaultThreadFactory().newThread(r);
                 t.setDaemon(true);
@@ -1291,6 +1291,12 @@ public class ServiceDiscovery {
 
     }
 
+    /**
+     * 服务发现
+     *
+     * @param force
+     * @return
+     */
     SDNetwork fullNetworkDiscovery(boolean force) {
         if (channel.isShutdown()) {
             return null;

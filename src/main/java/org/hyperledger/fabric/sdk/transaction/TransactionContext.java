@@ -34,8 +34,8 @@ import org.hyperledger.fabric.sdk.security.CryptoSuite;
  */
 public class TransactionContext {
     private static final Config config = Config.getConfig();
-    //    private static final Log logger = LogFactory.getLog(TransactionContext.class);
-    //TODO right now the server does not care need to figure out
+    // private static final Log logger = LogFactory.getLog(TransactionContext.class);
+    // TODO right now the server does not care need to figure out
     private final ByteString nonce = ByteString.copyFrom(Utils.generateNonce());
     private final CryptoSuite cryptoPrimitives;
     private final User user;
@@ -49,14 +49,22 @@ public class TransactionContext {
     private SigningIdentity signingIdentity;
     private final String toString;
 
+    /**
+     * 创建交易上下文
+     *
+     * @param channel          Channel
+     * @param user             交易发起用户
+     * @param cryptoPrimitives 加密套件
+     */
     public TransactionContext(Channel channel, User user, CryptoSuite cryptoPrimitives) {
 
         this.user = user;
         this.channel = channel;
-        //TODO clean up when public classes are interfaces.
-        this.verify = !"".equals(channel.getName());  //if name is not blank not system channel and need verify.
+        // TODO clean up when public classes are interfaces.
+        // if name is not blank not system channel and need verify.
+        this.verify = !"".equals(channel.getName());
 
-        //  this.txID = transactionID;
+        // this.txID = transactionID;
         this.cryptoPrimitives = cryptoPrimitives;
 
         // Get the signing identity from the user
@@ -65,12 +73,10 @@ public class TransactionContext {
         // Serialize signingIdentity
         this.identity = signingIdentity.createSerializedIdentity();
 
+        // 生成txId
         ByteString no = getNonce();
-
         ByteString comp = no.concat(identity.toByteString());
-
         byte[] txh = cryptoPrimitives.hash(comp.toByteArray());
-
         //    txID = Hex.encodeHexString(txh);
         txID = new String(Utils.toHexString(txh));
         toString = "TransactionContext{ txID: " + txID + ", mspid: " + user.getMspId() + ", user: " + user.getName() + "}";
@@ -146,18 +152,20 @@ public class TransactionContext {
         this.proposalWaitTime = proposalWaitTime;
     }
 
+    /**
+     * 获得Fabric时间戳
+     *
+     * @return
+     */
     public Timestamp getFabricTimestamp() {
         if (currentTimeStamp == null) {
-
             currentTimeStamp = ProtoUtils.getCurrentFabricTimestamp();
         }
         return currentTimeStamp;
     }
 
     public ByteString getNonce() {
-
         return nonce;
-
     }
 
     public void verify(boolean verify) {
@@ -184,6 +192,14 @@ public class TransactionContext {
         return ByteString.copyFrom(sign(b));
     }
 
+    /**
+     * 对多个字节字符串进行拼凑签名
+     *
+     * @param bs
+     * @return
+     * @throws CryptoException
+     * @throws InvalidArgumentException
+     */
     public ByteString signByteStrings(ByteString... bs) throws CryptoException, InvalidArgumentException {
         if (bs == null) {
             return null;
@@ -194,7 +210,6 @@ public class TransactionContext {
         if (bs.length == 1 && bs[0] == null) {
             return null;
         }
-
         ByteString f = bs[0];
         for (int i = 1; i < bs.length; ++i) {
             f = f.concat(bs[i]);

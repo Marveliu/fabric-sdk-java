@@ -70,6 +70,12 @@ public interface User {
      */
     String getMspId();
 
+    /**
+     * 用户上下文检查
+     *
+     * @param userContext
+     * @throws InvalidArgumentException
+     */
     static void userContextCheck(User userContext) throws InvalidArgumentException {
 
         if (userContext == null) {

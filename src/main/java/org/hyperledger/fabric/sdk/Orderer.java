@@ -154,9 +154,7 @@ public class Orderer implements Serializable {
         }
 
         logger.debug(format("Orderer.sendTransaction %s", toString()));
-
         OrdererClient localOrdererClient = getOrdererClient();
-
         try {
             return localOrdererClient.sendTransaction(transaction);
         } catch (Throwable t) {
@@ -189,9 +187,14 @@ public class Orderer implements Serializable {
 
     }
 
+    /**
+     * 获得order的Client，这是一个同步的方法，也是一个单例模式
+     *
+     * @return
+     */
     private synchronized OrdererClient getOrdererClient() {
-        OrdererClient localOrdererClient = ordererClient;
 
+        OrdererClient localOrdererClient = ordererClient;
         if (localOrdererClient == null || !localOrdererClient.isChannelActive()) {
             logger.trace(format("Channel %s creating new orderer client %s", channelName, this.toString()));
             localOrdererClient = new OrdererClient(this, Endpoint.createEndpoint(url, properties).getChannelBuilder(), properties);

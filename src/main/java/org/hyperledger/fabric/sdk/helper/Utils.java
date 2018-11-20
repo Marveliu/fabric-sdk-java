@@ -390,11 +390,15 @@ public final class Utils {
 
     private static final SecureRandom RANDOM = new SecureRandom();
 
+    /**
+     * In cryptography, a nonce is an arbitrary number that can be used just once
+     * https://en.wikipedia.org/wiki/Cryptographic_nonce
+     *
+     * @return
+     */
     public static byte[] generateNonce() {
-
         byte[] values = new byte[NONONCE_LENGTH];
         RANDOM.nextBytes(values);
-
         return values;
     }
 

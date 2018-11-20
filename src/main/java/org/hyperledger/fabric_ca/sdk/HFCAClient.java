@@ -456,6 +456,7 @@ public class HFCAClient {
             if (keypair == null) {
                 logger.debug("[HFCAClient.enroll] Generating keys...");
 
+                // 椭圆曲线加密
                 // generate ECDSA keys: signing and encryption keys
                 keypair = cryptoSuite.keyGen();
 
@@ -546,6 +547,7 @@ public class HFCAClient {
             }
             JsonObject body = factory.build();
 
+            // 发送请求
             String responseBody = httpPost(url + HFCA_INFO, body.toString(),
                     (UsernamePasswordCredentials) null);
 

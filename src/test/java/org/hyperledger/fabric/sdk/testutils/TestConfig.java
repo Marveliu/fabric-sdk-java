@@ -125,6 +125,7 @@ public class TestConfig {
             defaultProperty(PROPOSALWAITTIME, "120000");
             defaultProperty(RUNIDEMIXMTTEST, "false");
 
+            /// 写死了
             //////
             defaultProperty(INTEGRATIONTESTS_ORG + "peerOrg1.mspid", "Org1MSP");
             defaultProperty(INTEGRATIONTESTS_ORG + "peerOrg1.domname", "org1.example.com");

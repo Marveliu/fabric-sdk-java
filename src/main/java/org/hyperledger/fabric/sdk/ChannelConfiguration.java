@@ -55,6 +55,7 @@ public class ChannelConfiguration {
         }
         logger.trace(format("Creating ChannelConfiguration from file %s", configFile.getAbsolutePath()));
 
+        // 字节读入配置的tx文件信息
         try (InputStream is = new FileInputStream(configFile)) {
             configBytes = IOUtils.toByteArray(is);
         }

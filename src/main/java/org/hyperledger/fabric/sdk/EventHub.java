@@ -218,10 +218,12 @@ public class EventHub implements Serializable {
 
         clientTLSCertificateDigest = endpoint.getClientTLSCertificateDigest();
 
+        // EventStub
         events = EventsGrpc.newStub(managedChannel);
 
         final ArrayList<Throwable> threw = new ArrayList<>();
 
+        // 很熟悉的client grpc
         final StreamObserver<PeerEvents.Event> eventStreamLocal = new StreamObserver<PeerEvents.Event>() {
             @Override
             public void onNext(PeerEvents.Event event) {

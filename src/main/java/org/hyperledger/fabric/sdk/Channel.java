@@ -210,22 +210,32 @@ public class Channel implements Serializable {
 //        channelEventQue = null;
 //    }
 //
+
+    /**
+     * 创建Channel
+     *
+     * @param name
+     * @param hfClient
+     * @param orderer
+     * @param channelConfiguration
+     * @param signers
+     * @throws InvalidArgumentException
+     * @throws TransactionException
+     */
     private Channel(String name, HFClient hfClient, Orderer orderer, ChannelConfiguration channelConfiguration, byte[][] signers) throws InvalidArgumentException, TransactionException {
         this(name, hfClient, false);
 
         logger.debug(format("Creating new channel %s on the Fabric", name));
 
         Channel ordererChannel = orderer.getChannel();
-
         try {
             addOrderer(orderer);
-
             //-----------------------------------------
+            // 解析tx配置
             Envelope ccEnvelope = Envelope.parseFrom(channelConfiguration.getChannelConfigurationAsBytes());
-
             final Payload ccPayload = Payload.parseFrom(ccEnvelope.getPayload());
             final ChannelHeader ccChannelHeader = ChannelHeader.parseFrom(ccPayload.getHeader().getChannelHeader());
-
+            // 检查是否是升级channel
             if (ccChannelHeader.getType() != HeaderType.CONFIG_UPDATE.getNumber()) {
                 throw new InvalidArgumentException(format("Creating channel; %s expected config block type %s, but got: %s",
                         name,
@@ -233,27 +243,23 @@ public class Channel implements Serializable {
                         HeaderType.forNumber(ccChannelHeader.getType())));
             }
 
+            // channel名称是否一致
             if (!name.equals(ccChannelHeader.getChannelId())) {
-
                 throw new InvalidArgumentException(format("Expected config block for channel: %s, but got: %s", name,
                         ccChannelHeader.getChannelId()));
             }
-
             final ConfigUpdateEnvelope configUpdateEnv = ConfigUpdateEnvelope.parseFrom(ccPayload.getData());
             ByteString configUpdate = configUpdateEnv.getConfigUpdate();
-
+            // 将payload data和签名，发送到order节点
             sendUpdateChannel(configUpdate.toByteArray(), signers, orderer);
-            //         final ConfigUpdateEnvelope.Builder configUpdateEnvBuilder = configUpdateEnv.toBuilder();`
-
+            // final ConfigUpdateEnvelope.Builder configUpdateEnvBuilder = configUpdateEnv.toBuilder();`
             //---------------------------------------
-
-            //          sendUpdateChannel(channelConfiguration, signers, orderer);
-
-            getGenesisBlock(orderer); // get Genesis block to make sure channel was created.
+            // sendUpdateChannel(channelConfiguration, signers, orderer);
+            // get Genesis block to make sure channel was created.
+            getGenesisBlock(orderer);
             if (genesisBlock == null) {
                 throw new TransactionException(format("New channel %s error. Genesis bock returned null", name));
             }
-
             logger.debug(format("Created new channel %s on the Fabric done.", name));
         } catch (TransactionException e) {
 
@@ -478,40 +484,40 @@ public class Channel implements Serializable {
 
     }
 
+    /**
+     * 升级或者创建channel
+     *
+     * @param configupdate
+     * @param signers
+     * @param orderer
+     * @throws TransactionException
+     * @throws InvalidArgumentException
+     */
     private void sendUpdateChannel(byte[] configupdate, byte[][] signers, Orderer orderer) throws TransactionException, InvalidArgumentException {
 
         logger.debug(format("Channel %s sendUpdateChannel", name));
         checkOrderer(orderer);
 
         try {
-
             final long nanoTimeStart = System.nanoTime();
             int statusCode = 0;
 
             do {
-
-                //Make sure we have fresh transaction context for each try just to be safe.
+                // Make sure we have fresh transaction context for each try just to be safe.
                 TransactionContext transactionContext = getTransactionContext();
 
                 ConfigUpdateEnvelope.Builder configUpdateEnvBuilder = ConfigUpdateEnvelope.newBuilder();
-
                 configUpdateEnvBuilder.setConfigUpdate(ByteString.copyFrom(configupdate));
 
                 for (byte[] signer : signers) {
-
-                    configUpdateEnvBuilder.addSignatures(
-                            ConfigSignature.parseFrom(signer));
-
+                    configUpdateEnvBuilder.addSignatures(ConfigSignature.parseFrom(signer));
                 }
 
                 //--------------
-                // Construct Payload Envelope.
+                // Construct Payload Envelope. 其实这个过程就是在构建channel.tx
 
                 final ByteString sigHeaderByteString = getSignatureHeaderAsByteString(transactionContext);
-
-                final ChannelHeader payloadChannelHeader = ProtoUtils.createChannelHeader(HeaderType.CONFIG_UPDATE,
-                        transactionContext.getTxID(), name, transactionContext.getEpoch(), transactionContext.getFabricTimestamp(), null, null);
-
+                final ChannelHeader payloadChannelHeader = ProtoUtils.createChannelHeader(HeaderType.CONFIG_UPDATE, transactionContext.getTxID(), name, transactionContext.getEpoch(), transactionContext.getFabricTimestamp(), null, null);
                 final Header payloadHeader = Header.newBuilder().setChannelHeader(payloadChannelHeader.toByteString())
                         .setSignatureHeader(sigHeaderByteString).build();
 
@@ -521,13 +527,12 @@ public class Channel implements Serializable {
                         .build().toByteString();
 
                 ByteString payloadSignature = transactionContext.signByteStrings(payloadByteString);
-
                 Envelope payloadEnv = Envelope.newBuilder()
                         .setSignature(payloadSignature)
                         .setPayload(payloadByteString).build();
 
+                // 广播交易
                 BroadcastResponse trxResult = orderer.sendTransaction(payloadEnv);
-
                 statusCode = trxResult.getStatusValue();
 
                 logger.debug(format("Channel %s sendUpdateChannel %d", name, statusCode));
@@ -542,13 +547,13 @@ public class Channel implements Serializable {
                             info = "";
 
                         }
-
                         throw new TransactionException(format("Channel %s update error timed out after %d ms. Status value %d. Status %s. %s", name,
                                 duration, statusCode, trxResult.getStatus().name(), info));
                     }
 
                     try {
-                        Thread.sleep(ORDERER_RETRY_WAIT_TIME); //try again sleep
+                        // try again sleep
+                        Thread.sleep(ORDERER_RETRY_WAIT_TIME);
                     } catch (InterruptedException e) {
                         TransactionException te = new TransactionException("update thread Sleep", e);
                         logger.warn(te.getMessage(), te);
@@ -556,25 +561,20 @@ public class Channel implements Serializable {
 
                 } else if (200 != statusCode) {
                     // Can't retry.
-
                     String info = trxResult.getInfo();
                     if (null == info) {
                         info = "";
                     }
-
                     throw new TransactionException(format("New channel %s error. StatusValue %d. Status %s. %s", name,
                             statusCode, "" + trxResult.getStatus(), info));
                 }
 
             } while (200 != statusCode); // try again
-
         } catch (TransactionException e) {
-
             logger.error(format("Channel %s error: %s", name, e.getMessage()), e);
             throw e;
         } catch (Exception e) {
             String msg = format("Channel %s error: %s", name, e.getMessage());
-
             logger.error(msg, e);
             throw new TransactionException(msg, e);
         }
@@ -1742,7 +1742,7 @@ public class Channel implements Serializable {
 
             ByteString sigHeaderByteString = getSignatureHeaderAsByteString(signer, transactionContext);
 
-            ByteString signatureByteSting = transactionContext.signByteStrings(new User[] {signer},
+            ByteString signatureByteSting = transactionContext.signByteStrings(new User[]{signer},
                     sigHeaderByteString, configUpdate)[0];
 
             return ConfigSignature.newBuilder()
@@ -2251,7 +2251,7 @@ public class Channel implements Serializable {
             } else if (port > 65535) {
                 throw new InvalidArgumentException(format("Endpoint '%s' expected to be format \"host:port\". Port does not seem to be a valid port number less than 65535. ", endPoint));
             }
-            return new String[] {host, port + ""};
+            return new String[]{host, port + ""};
 
         } catch (URISyntaxException e) {
             throw new InvalidArgumentException(format("Endpoint '%s' expected to be format \"host:port\".", endPoint), e);
@@ -2357,7 +2357,7 @@ public class Channel implements Serializable {
 
         logger.trace(format("seekBlock for channel %s", name));
         final long start = System.currentTimeMillis();
-        @SuppressWarnings ("UnusedAssignment")
+        @SuppressWarnings("UnusedAssignment")
         int statusRC = 404;
 
         try {
@@ -2525,11 +2525,16 @@ public class Channel implements Serializable {
         return getTransactionContext(client.getUserContext());
     }
 
+    /**
+     * 交易上下文
+     *
+     * @param userContext
+     * @return
+     * @throws InvalidArgumentException
+     */
     private TransactionContext getTransactionContext(User userContext) throws InvalidArgumentException {
         userContext = userContext != null ? userContext : client.getUserContext();
-
         userContextCheck(userContext);
-
         return new TransactionContext(this, userContext, client.getCryptoSuite());
     }
 
@@ -2759,7 +2764,7 @@ public class Channel implements Serializable {
             QuerySCCRequest querySCCRequest = new QuerySCCRequest(userContext);
             querySCCRequest.setFcn(QuerySCCRequest.GETBLOCKBYHASH);
             querySCCRequest.setArgs(name);
-            querySCCRequest.setArgBytes(new byte[][] {blockHash});
+            querySCCRequest.setArgBytes(new byte[][]{blockHash});
 
             ProposalResponse proposalResponse = sendProposalSerially(querySCCRequest, peers);
 
@@ -2835,8 +2840,13 @@ public class Channel implements Serializable {
 
     }
 
+    /**
+     * Order检查
+     *
+     * @param orderer
+     * @throws InvalidArgumentException
+     */
     private void checkOrderer(Orderer orderer) throws InvalidArgumentException {
-
         if (orderer == null) {
             throw new InvalidArgumentException("Orderer value is null.");
         }
@@ -2849,7 +2859,6 @@ public class Channel implements Serializable {
         if (orderer.getChannel() != this) {
             throw new InvalidArgumentException("Orderer " + orderer.getName() + " not set for channel " + name);
         }
-
     }
 
     private void checkPeers(Collection<Peer> peers) throws InvalidArgumentException {
@@ -5006,6 +5015,15 @@ public class Channel implements Serializable {
 
     }
 
+
+    /**
+     * 获得用户签名
+     *
+     * @param channelConfiguration
+     * @param signer
+     * @return
+     * @throws InvalidArgumentException
+     */
     byte[] getChannelConfigurationSignature(ChannelConfiguration channelConfiguration, User signer) throws InvalidArgumentException {
 
         userContextCheck(signer);
@@ -5030,7 +5048,7 @@ public class Channel implements Serializable {
 
             ByteString sigHeaderByteString = getSignatureHeaderAsByteString(signer, transactionContext);
 
-            ByteString signatureByteSting = transactionContext.signByteStrings(new User[] {signer},
+            ByteString signatureByteSting = transactionContext.signByteStrings(new User[]{signer},
                     sigHeaderByteString, configUpdate)[0];
 
             return ConfigSignature.newBuilder()
