@@ -152,7 +152,6 @@ public class Orderer implements Serializable {
         if (shutdown) {
             throw new TransactionException(format("Orderer %s was shutdown.", name));
         }
-
         logger.debug(format("Orderer.sendTransaction %s", toString()));
         OrdererClient localOrdererClient = getOrdererClient();
         try {
@@ -160,31 +159,29 @@ public class Orderer implements Serializable {
         } catch (Throwable t) {
             removeOrdererClient(true);
             throw t;
-
         }
-
     }
 
+    /**
+     * 发送投送
+     *
+     * @param transaction
+     * @return
+     * @throws TransactionException
+     */
     DeliverResponse[] sendDeliver(Common.Envelope transaction) throws TransactionException {
-
         if (shutdown) {
             throw new TransactionException(format("Orderer %s was shutdown.", name));
         }
-
         OrdererClient localOrdererClient = getOrdererClient();
-
         logger.debug(format("%s Orderer.sendDeliver", toString()));
-
         try {
-
             return localOrdererClient.sendDeliver(transaction);
         } catch (Throwable t) {
             logger.error(format("%s removing %s due to %s", this.toString(), localOrdererClient, t.getMessage()));
             removeOrdererClient(true);
             throw t;
-
         }
-
     }
 
     /**

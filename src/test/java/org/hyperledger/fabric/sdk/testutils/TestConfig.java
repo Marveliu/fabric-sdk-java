@@ -357,24 +357,28 @@ public class TestConfig {
     }
 
     public Properties getPeerProperties(String name) {
-
         return getEndPointProperties("peer", name);
-
     }
 
     public Properties getOrdererProperties(String name) {
-
         return getEndPointProperties("orderer", name);
-
     }
 
+    /**
+     * 获得端点配置信息
+     *
+     * @param type 类别
+     * @param name 名称
+     * @return
+     */
     public Properties getEndPointProperties(final String type, final String name) {
-        Properties ret = new Properties();
 
+        Properties ret = new Properties();
         final String domainName = getDomainName(name);
 
         File cert = Paths.get(getTestChannelPath(), "crypto-config/ordererOrganizations".replace("orderer", type), domainName, type + "s",
                 name, "tls/server.crt").toFile();
+
         if (!cert.exists()) {
             throw new RuntimeException(String.format("Missing cert file for: %s. Could not find at location: %s", name,
                     cert.getAbsolutePath()));
@@ -383,9 +387,10 @@ public class TestConfig {
         if (!isRunningAgainstFabric10()) {
             File clientCert;
             File clientKey;
+
+            /// Cert 与 Key
             if ("orderer".equals(type)) {
                 clientCert = Paths.get(getTestChannelPath(), "crypto-config/ordererOrganizations/example.com/users/Admin@example.com/tls/client.crt").toFile();
-
                 clientKey = Paths.get(getTestChannelPath(), "crypto-config/ordererOrganizations/example.com/users/Admin@example.com/tls/client.key").toFile();
             } else {
                 clientCert = Paths.get(getTestChannelPath(), "crypto-config/peerOrganizations/", domainName, "users/User1@" + domainName, "tls/client.crt").toFile();
@@ -421,7 +426,6 @@ public class TestConfig {
     }
 
     public String getTestChannelPath() {
-
         return "src/test/fixture/sdkintegration/e2e-2Orgs/" + FAB_CONFIG_GEN_VERS;
 
     }
@@ -438,6 +442,16 @@ public class TestConfig {
 
     public String getFabricConfigTxLaterLocation() {
         return "http://" + LOCALHOST + ":7059";
+    }
+
+    private String getDomainName(final String name) {
+        int dot = name.indexOf(".");
+        if (-1 == dot) {
+            return null;
+        } else {
+            return name.substring(dot + 1);
+        }
+
     }
 
     /**
@@ -494,16 +508,6 @@ public class TestConfig {
         }
 
         return ret;
-    }
-
-    private String getDomainName(final String name) {
-        int dot = name.indexOf(".");
-        if (-1 == dot) {
-            return null;
-        } else {
-            return name.substring(dot + 1);
-        }
-
     }
 
 }

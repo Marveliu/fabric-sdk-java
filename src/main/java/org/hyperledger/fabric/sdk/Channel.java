@@ -276,7 +276,6 @@ public class Channel implements Serializable {
                 orderer.setChannel(ordererChannel);
             }
             String msg = format("Channel %s error: %s", name, e.getMessage());
-
             logger.error(msg, e);
             throw new TransactionException(msg, e);
         }
@@ -288,24 +287,23 @@ public class Channel implements Serializable {
     }
 
     /**
+     * 获得Channel
+     *
      * @param name
      * @param client
      * @throws InvalidArgumentException
      */
-
     private Channel(String name, HFClient client, final boolean systemChannel) throws InvalidArgumentException {
-
         this.systemChannel = systemChannel;
-
         if (systemChannel) {
-            name = SYSTEM_CHANNEL_NAME; //It's special !
+            // It's special !
+            name = SYSTEM_CHANNEL_NAME;
             initialized = true;
         } else {
             if (isNullOrEmpty(name)) {
                 throw new InvalidArgumentException("Channel name is invalid can not be null or empty.");
             }
         }
-
         if (null == client) {
             throw new InvalidArgumentException("Channel client is invalid can not be null.");
         }
@@ -340,9 +338,7 @@ public class Channel implements Serializable {
     }
 
     static Channel createNewInstance(String name, HFClient hfClient, Orderer orderer, ChannelConfiguration channelConfiguration, byte[]... signers) throws InvalidArgumentException, TransactionException {
-
         return new Channel(name, hfClient, orderer, channelConfiguration, signers);
-
     }
 
     private static void checkHandle(final String tag, final String handle) throws InvalidArgumentException {
@@ -645,12 +641,13 @@ public class Channel implements Serializable {
         logger.debug(format("%s adding peer: %s, peerOptions: %s", toString(), peer, "" + peerOptions));
         peer.setChannel(this);
 
+        // 本地存储Peer的相关信息
         peers.add(peer);
         peerOptionsMap.put(peer, peerOptions.clone());
         peerEndpointMap.put(peer.getEndpoint(), peer);
 
+        // todo
         if (peerOptions.getPeerRoles().contains(PeerRole.SERVICE_DISCOVERY)) {
-
             final Properties properties = peer.getProperties();
             if ((properties == null) || (isNullOrEmpty(properties.getProperty("clientCertFile")) &&
                     isNullOrEmpty(properties.getProperty("clientCertBytes")))) {
@@ -658,9 +655,7 @@ public class Channel implements Serializable {
                 TLSCertificateKeyPair tlsCertificateKeyPair = tlsCertificateBuilder.clientCert();
                 peer.setTLSCertificateKeyPair(tlsCertificateKeyPair);
             }
-
             discoveryEndpoints.add(peer.getEndpoint());
-
         }
 
         for (Map.Entry<PeerRole, Set<Peer>> peerRole : peerRoleSetMap.entrySet()) {
@@ -724,12 +719,13 @@ public class Channel implements Serializable {
     }
 
     /**
+     * Peer加入Channel
+     *
      * @param peer        the peer to join the channel.
      * @param peerOptions see {@link PeerOptions}
      * @return
      * @throws ProposalException
      */
-
     public Channel joinPeer(Peer peer, PeerOptions peerOptions) throws ProposalException {
 
         try {
@@ -773,15 +769,17 @@ public class Channel implements Serializable {
             ProposalException e = new ProposalException("Channel missing genesis block and no orderers configured");
             logger.error(e.getMessage(), e);
         }
-        try {
 
+        try {
             genesisBlock = getGenesisBlock(orderer);
             logger.debug(format("Channel %s got genesis block", name));
-
-            final Channel systemChannel = newSystemChannel(client); //channel is not really created and this is targeted to system channel
+            // channel is not really created and this is targeted to system channel
+            // 获得系统通道
+            final Channel systemChannel = newSystemChannel(client);
 
             TransactionContext transactionContext = systemChannel.getTransactionContext();
 
+            // 构建提案
             FabricProposal.Proposal joinProposal = JoinPeerProposalBuilder.newBuilder()
                     .context(transactionContext)
                     .genesisBlock(genesisBlock)
@@ -791,7 +789,8 @@ public class Channel implements Serializable {
             SignedProposal signedProposal = getSignedProposal(transactionContext, joinProposal);
             logger.debug("Got signed proposal.");
 
-            addPeer(peer, peerOptions); //need to add peer.
+            // need to add peer. 并且设置Peer的角色等选项
+            addPeer(peer, peerOptions);
 
             Collection<ProposalResponse> resp = sendProposalToPeers(new ArrayList<>(Collections.singletonList(peer)),
                     signedProposal, transactionContext);
@@ -1635,18 +1634,26 @@ public class Channel implements Serializable {
         logger.debug(format("Channel %s loadCACertificates completed ", name));
     }
 
+    /**
+     * 获得创世区块
+     *
+     * @param orderer
+     * @return
+     * @throws TransactionException
+     */
     private Block getGenesisBlock(Orderer orderer) throws TransactionException {
         try {
             if (genesisBlock != null) {
                 logger.debug(format("Channel %s getGenesisBlock already present", name));
-
             } else {
 
                 final long start = System.currentTimeMillis();
 
+                // 找创世区块，number 0
                 SeekSpecified seekSpecified = SeekSpecified.newBuilder()
                         .setNumber(0)
                         .build();
+
                 SeekPosition seekPosition = SeekPosition.newBuilder()
                         .setSpecified(seekSpecified)
                         .build();
@@ -1668,9 +1675,10 @@ public class Channel implements Serializable {
                 ArrayList<DeliverResponse> deliverResponses = new ArrayList<>();
 
                 seekBlock(seekInfo, deliverResponses, orderer);
-
                 DeliverResponse blockresp = deliverResponses.get(1);
                 Block configBlock = blockresp.getBlock();
+
+
                 if (configBlock == null) {
                     throw new TransactionException(format("In getGenesisBlock newest block for channel %s fetch bad deliver returned null:", name));
                 }
@@ -1681,7 +1689,6 @@ public class Channel implements Serializable {
                 }
 
                 genesisBlock = blockresp.getBlock();
-
             }
         } catch (TransactionException e) {
             logger.error(e.getMessage(), e);
@@ -1692,13 +1699,13 @@ public class Channel implements Serializable {
             throw exp;
         }
 
-        if (genesisBlock == null) { //make sure it was really set.
+        // make sure it was really set.
+        if (genesisBlock == null) {
             TransactionException exp = new TransactionException("getGenesisBlock returned null");
             logger.error(exp.getMessage(), exp);
             throw exp;
 
         }
-
         logger.debug(format("Channel %s getGenesisBlock done.", name));
         return genesisBlock;
     }
@@ -2353,6 +2360,15 @@ public class Channel implements Serializable {
 
     }
 
+    /**
+     * 找区块
+     *
+     * @param seekInfo
+     * @param deliverResponses
+     * @param ordererIn
+     * @return
+     * @throws TransactionException
+     */
     private int seekBlock(SeekInfo seekInfo, List<DeliverResponse> deliverResponses, Orderer ordererIn) throws TransactionException {
 
         logger.trace(format("seekBlock for channel %s", name));
@@ -2368,32 +2384,31 @@ public class Channel implements Serializable {
 
                 final Orderer orderer = ordererIn != null ? ordererIn : getRandomOrderer();
 
+                // 往链上面发送`找区块`, 获得返回
                 TransactionContext txContext = getTransactionContext();
-
                 DeliverResponse[] deliver = orderer.sendDeliver(createSeekInfoEnvelope(txContext, seekInfo, orderer.getClientTLSCertificateDigest()));
 
                 if (deliver.length < 1) {
                     logger.warn(format("Genesis block for channel %s fetch bad deliver missing status block only got blocks:%d", name, deliver.length));
-                    //odd so lets try again....
+                    // odd so lets try again....
                     statusRC = 404;
-
                 } else {
 
                     DeliverResponse status = deliver[0];
                     statusRC = status.getStatusValue();
 
-                    if (statusRC == 404 || statusRC == 503) { //404 - block not found.  503 - service not available usually means kafka is not ready but starting.
+                    //404 - block not found.  503 - service not available usually means kafka is not ready but starting.
+                    if (statusRC == 404 || statusRC == 503) {
                         logger.warn(format("Bad deliver expected status 200  got  %d, Channel %s", status.getStatusValue(), name));
                         // keep trying... else
                         statusRC = 404;
-
-                    } else if (statusRC != 200) { // Assume for anything other than 200 we have a non retryable situation
+                    } else if (statusRC != 200) {
+                        // Assume for anything other than 200 we have a non retryable situation
                         throw new TransactionException(format("Bad newest block expected status 200  got  %d, Channel %s", status.getStatusValue(), name));
                     } else {
                         if (deliver.length < 2) {
                             throw new TransactionException(format("Newest block for channel %s fetch bad deliver missing genesis block only got %d:", name, deliver.length));
                         } else {
-
                             deliverResponses.addAll(Arrays.asList(deliver));
                         }
                     }
@@ -2404,20 +2419,18 @@ public class Channel implements Serializable {
 
                 if (200 != statusRC) {
                     long duration = System.currentTimeMillis() - start;
-
                     if (duration > config.getGenesisBlockWaitTime()) {
                         throw new TransactionException(format("Getting block time exceeded %s seconds for channel %s", Long.toString(TimeUnit.MILLISECONDS.toSeconds(duration)), name));
                     }
                     try {
-                        Thread.sleep(ORDERER_RETRY_WAIT_TIME); //try again
+                        // try again
+                        Thread.sleep(ORDERER_RETRY_WAIT_TIME);
                     } catch (InterruptedException e) {
                         TransactionException te = new TransactionException("seekBlock thread Sleep", e);
                         logger.warn(te.getMessage(), te);
                     }
                 }
-
             } while (statusRC != 200);
-
         } catch (TransactionException e) {
             logger.error(e.getMessage(), e);
             throw e;
@@ -2425,9 +2438,7 @@ public class Channel implements Serializable {
             logger.error(e.getMessage(), e);
             throw new TransactionException(e);
         }
-
         return statusRC;
-
     }
 
     private Block getLatestBlock(Orderer orderer) throws TransactionException {
@@ -2652,14 +2663,21 @@ public class Channel implements Serializable {
         }
     }
 
+    /**
+     * 签名提案
+     *
+     * @param transactionContext
+     * @param proposal
+     * @return
+     * @throws CryptoException
+     * @throws InvalidArgumentException
+     */
     private SignedProposal getSignedProposal(TransactionContext transactionContext, FabricProposal.Proposal proposal) throws CryptoException, InvalidArgumentException {
-
         SignedProposal sp;
         sp = SignedProposal.newBuilder()
                 .setProposalBytes(proposal.toByteString())
                 .setSignature(transactionContext.signByteString(proposal.toByteArray()))
                 .build();
-
         return sp;
     }
 
@@ -2811,16 +2829,19 @@ public class Channel implements Serializable {
         return peers;
     }
 
+    /**
+     * 随机获得一个Order节点
+     *
+     * @return
+     * @throws InvalidArgumentException
+     */
     private Orderer getRandomOrderer() throws InvalidArgumentException {
-
-        final ArrayList<Orderer> randPicks = new ArrayList<>(new HashSet<>(getOrderers())); //copy to avoid unlikely changes
-
+        // copy to avoid unlikely changes
+        final ArrayList<Orderer> randPicks = new ArrayList<>(new HashSet<>(getOrderers()));
         if (randPicks.isEmpty()) {
             throw new InvalidArgumentException("Channel " + name + " does not have any orderers associated with it.");
         }
-
         return randPicks.get(RANDOM.nextInt(randPicks.size()));
-
     }
 
     private void checkPeer(Peer peer) throws InvalidArgumentException {
@@ -5686,11 +5707,8 @@ public class Channel implements Serializable {
             sb.append("PeerOptions( " + format("newest: %s, startEvents: %s, stopEvents: %s, registerEventsForFilteredBlocks: %s", "" + newest, "" + startEvents, "" + stopEvents, registerEventsForFilteredBlocks));
 
             if (peerRoles != null && !peerRoles.isEmpty()) {
-
                 sb.append(", PeerRoles:[");
-
                 String sep = "";
-
                 for (PeerRole peerRole : peerRoles) {
                     sb.append(sep).append(peerRole.getPropertyName());
                     sep = " ,";
@@ -5826,7 +5844,6 @@ public class Channel implements Serializable {
         public PeerOptions startEvents(long start) {
             startEvents = start;
             newest = null;
-
             return this;
         }
 

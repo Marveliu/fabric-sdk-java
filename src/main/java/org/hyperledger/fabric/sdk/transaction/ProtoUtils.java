@@ -98,7 +98,6 @@ public final class ProtoUtils {
             }
             logger.debug(format("ChannelHeader: type: %s, version: 1, Txid: %s, channelId: %s, epoch %d, clientTLSCertificate digest: %s",
                     type.name(), txID, channelID, epoch, tlschs));
-
         }
 
         ChannelHeader.Builder ret = ChannelHeader.newBuilder()
@@ -115,9 +114,7 @@ public final class ProtoUtils {
         if (tlsCertHash != null) {
             ret.setTlsCertHash(ByteString.copyFrom(tlsCertHash));
         }
-
         return ret.build();
-
     }
 
     public static ChaincodeDeploymentSpec createDeploymentSpec(Type ccType, String name, String chaincodePath,
@@ -262,6 +259,16 @@ public final class ProtoUtils {
                 .setNanos((int) ((millis % 1000) * 1000000)).build();
     }
 
+    /**
+     * 构建Channel Signature Common等Header，以及Payload
+     *
+     * @param transactionContext
+     * @param seekInfo
+     * @param tlsCertHash
+     * @return
+     * @throws CryptoException
+     * @throws InvalidArgumentException
+     */
     public static Envelope createSeekInfoEnvelope(TransactionContext transactionContext, SeekInfo seekInfo, byte[] tlsCertHash) throws CryptoException, InvalidArgumentException {
 
         ChannelHeader seekInfoHeader = createChannelHeader(Common.HeaderType.DELIVER_SEEK_INFO,
@@ -289,6 +296,18 @@ public final class ProtoUtils {
 
     }
 
+    /**
+     * 创建查找区块信封
+     *
+     * @param transactionContext
+     * @param startPosition
+     * @param stopPosition
+     * @param seekBehavior
+     * @param tlsCertHash
+     * @return
+     * @throws CryptoException
+     * @throws InvalidArgumentException
+     */
     public static Envelope createSeekInfoEnvelope(TransactionContext transactionContext, SeekPosition startPosition,
                                                   SeekPosition stopPosition,
                                                   SeekBehavior seekBehavior, byte[] tlsCertHash) throws CryptoException, InvalidArgumentException {

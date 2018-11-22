@@ -21,7 +21,9 @@ import org.hyperledger.fabric.sdk.exception.ProposalException;
 
 import static org.hyperledger.fabric.protos.peer.Chaincode.ChaincodeSpec.Type.GOLANG;
 
+// Configuration System Chaincode
 public class CSCCProposalBuilder extends ProposalBuilder {
+
     private static final String CSCC_CHAIN_NAME = "cscc";
     private static final Chaincode.ChaincodeID CHAINCODE_ID_CSCC =
             Chaincode.ChaincodeID.newBuilder().setName(CSCC_CHAIN_NAME).build();

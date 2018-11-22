@@ -158,11 +158,8 @@ public class Peer implements Serializable {
      *
      * @return
      */
-
     Channel getChannel() {
-
         return channel;
-
     }
 
     /**

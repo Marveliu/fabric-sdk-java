@@ -218,7 +218,8 @@ class Endpoint {
                         logger.trace("client TLS certificate bytes:" + Hex.encodeHexString(ccb));
                         clientCert = new X509Certificate[]{(X509Certificate) cp.bytesToCertificate(ccb)};
                         logger.trace("converted client TLS certificate.");
-                        tlsClientCertificatePEMBytes = ccb; // Save this away it's the exact pem we used.
+                        // Save this away it's the exact pem we used.
+                        tlsClientCertificatePEMBytes = ccb;
                     } catch (CryptoException e) {
                         logger.error(format("Failed endpoint %s to parse %s TLS client %s", url, what, new String(whatBytes)));
                         throw new RuntimeException(format("Failed endpoint %s to parse TLS client %s", url, what), e);
@@ -275,10 +276,7 @@ class Endpoint {
                                     .build();
                         }
 
-                        channelBuilder = NettyChannelBuilder
-                                .forAddress(addr, port)
-                                .sslContext(sslContext)
-                                .negotiationType(ntype);
+                        channelBuilder = NettyChannelBuilder.forAddress(addr, port).sslContext(sslContext).negotiationType(ntype);
 
                         if (cn != null) {
                             logger.debug(format("Endpoint %s, using CN overrideAuthority: '%s'", url, cn));

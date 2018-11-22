@@ -34,6 +34,7 @@ import org.hyperledger.fabric.sdk.security.CryptoSuite;
  */
 public class TransactionContext {
     private static final Config config = Config.getConfig();
+
     // private static final Log logger = LogFactory.getLog(TransactionContext.class);
     // TODO right now the server does not care need to figure out
     private final ByteString nonce = ByteString.copyFrom(Utils.generateNonce());

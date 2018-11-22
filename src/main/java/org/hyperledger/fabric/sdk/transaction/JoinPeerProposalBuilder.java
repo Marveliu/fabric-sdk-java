@@ -25,16 +25,22 @@ import org.hyperledger.fabric.protos.common.Common.Block;
 import org.hyperledger.fabric.sdk.exception.ProposalException;
 
 public class JoinPeerProposalBuilder extends CSCCProposalBuilder {
+
     private static final Log logger = LogFactory.getLog(JoinPeerProposalBuilder.class);
 
+    /**
+     * 设置创世区块
+     *
+     * @param genesisBlock
+     * @return
+     * @throws ProposalException
+     */
     public JoinPeerProposalBuilder genesisBlock(Block genesisBlock) throws ProposalException {
-
         if (genesisBlock == null) {
             ProposalException exp = new ProposalException("No genesis block for Join proposal.");
             JoinPeerProposalBuilder.logger.error(exp.getMessage(), exp);
             throw exp;
         }
-
         List<ByteString> argList = new ArrayList<>();
         argList.add(ByteString.copyFrom("JoinChain", StandardCharsets.UTF_8));
         argList.add(genesisBlock.toByteString());

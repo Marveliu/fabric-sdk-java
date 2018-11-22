@@ -43,6 +43,7 @@ import static org.hyperledger.fabric.sdk.helper.Utils.logString;
 import static org.hyperledger.fabric.sdk.transaction.ProtoUtils.createChannelHeader;
 import static org.hyperledger.fabric.sdk.transaction.ProtoUtils.getSignatureHeaderAsByteString;
 
+// 构造提案
 public class ProposalBuilder {
 
     private static final Log logger = LogFactory.getLog(ProposalBuilder.class);
@@ -65,20 +66,39 @@ public class ProposalBuilder {
         return new ProposalBuilder();
     }
 
+    /**
+     * 设置ChainCode
+     *
+     * @param chaincodeID
+     * @return
+     */
     public ProposalBuilder chaincodeID(Chaincode.ChaincodeID chaincodeID) {
         this.chaincodeID = chaincodeID;
         return this;
     }
 
+    /**
+     * 参数
+     *
+     * @param argList
+     * @return
+     */
     public ProposalBuilder args(List<ByteString> argList) {
         this.argList = argList;
         return this;
     }
 
+    /**
+     * 交易上下文
+     *
+     * @param context
+     * @return
+     */
     public ProposalBuilder context(TransactionContext context) {
         this.context = context;
         if (null == channelID) {
-            channelID = context.getChannel().getName(); //Default to context channel.
+            // Default to context channel.
+            channelID = context.getChannel().getName();
         }
         return this;
     }
@@ -103,7 +123,6 @@ public class ProposalBuilder {
         }
 
         transientMap = request.getTransientMap();
-
         return this;
     }
 
@@ -114,6 +133,13 @@ public class ProposalBuilder {
         return createFabricProposal(channelID, chaincodeID);
     }
 
+    /**
+     * 创建提案
+     *
+     * @param channelID
+     * @param chaincodeID
+     * @return
+     */
     private FabricProposal.Proposal createFabricProposal(String channelID, Chaincode.ChaincodeID chaincodeID) {
         if (null == transientMap) {
             transientMap = Collections.emptyMap();
@@ -125,25 +151,26 @@ public class ProposalBuilder {
                         logString(new String(tme.getValue(), UTF_8))));
             }
         }
+
+
         ChaincodeHeaderExtension chaincodeHeaderExtension = ChaincodeHeaderExtension.newBuilder()
                 .setChaincodeId(chaincodeID).build();
 
         Common.ChannelHeader chainHeader = createChannelHeader(HeaderType.ENDORSER_TRANSACTION,
                 context.getTxID(), channelID, context.getEpoch(), context.getFabricTimestamp(), chaincodeHeaderExtension, null);
 
-        ChaincodeInvocationSpec chaincodeInvocationSpec = createChaincodeInvocationSpec(
-                chaincodeID,
-                ccType);
+        // Carries the chaincode function and its arguments.
+        ChaincodeInvocationSpec chaincodeInvocationSpec = createChaincodeInvocationSpec(chaincodeID, ccType);
 
-        //Convert to bytestring map.
+        // Convert to bytestring map.
         Map<String, ByteString> bsm = Collections.EMPTY_MAP;
+
+        // 处理标注为 transient的数据
+        // todo
         if (transientMap != null) {
-
             bsm = new HashMap<>(transientMap.size());
-
             for (Entry<String, byte[]> tme : transientMap.entrySet()) {
                 bsm.put(tme.getKey(), ByteString.copyFrom(tme.getValue()));
-
             }
         }
 
@@ -164,6 +191,13 @@ public class ProposalBuilder {
 
     }
 
+    /**
+     * Carries the chaincode function and its arguments.
+     *
+     * @param chaincodeID
+     * @param langType
+     * @return
+     */
     private ChaincodeInvocationSpec createChaincodeInvocationSpec(Chaincode.ChaincodeID chaincodeID, ChaincodeSpec.Type langType) {
 
         List<ByteString> allArgs = new ArrayList<>();
@@ -174,6 +208,8 @@ public class ProposalBuilder {
             // TODO need to clean this logic up so that common protobuf struct builds are in one place
             allArgs = argList;
         } else if (request != null) {
+
+            // args 以及 argsBytes都是参数，request有两个重载的方法，可能是支持不同的类型吧
             // if argList is empty and we have a Request, build the chaincodeInput args array from the Request args and argbytes lists
             allArgs.add(ByteString.copyFrom(request.getFcn(), UTF_8));
             List<String> args = request.getArgs();
@@ -191,40 +227,29 @@ public class ProposalBuilder {
                     allArgs.add(ByteString.copyFrom(arg));
                 }
             }
-
         }
         if (IS_DEBUG_LEVEL) {
-
             StringBuilder logout = new StringBuilder(1000);
-
             logout.append(format("ChaincodeInvocationSpec type: %s, chaincode name: %s, chaincode path: %s, chaincode version: %s",
                     langType.name(), chaincodeID.getName(), chaincodeID.getPath(), chaincodeID.getVersion()));
 
             String sep = "";
             logout.append(" args(");
-
             for (ByteString x : allArgs) {
                 logout.append(sep).append("\"").append(logString(new String(x.toByteArray(), UTF_8))).append("\"");
                 sep = ", ";
-
             }
             logout.append(")");
-
             logger.debug(logout.toString());
-
         }
-
         ChaincodeInput chaincodeInput = ChaincodeInput.newBuilder().addAllArgs(allArgs).build();
-
         ChaincodeSpec chaincodeSpec = ChaincodeSpec.newBuilder()
                 .setType(langType)
                 .setChaincodeId(chaincodeID)
                 .setInput(chaincodeInput)
                 .build();
 
-        return ChaincodeInvocationSpec.newBuilder()
-                .setChaincodeSpec(chaincodeSpec).build();
-
+        return ChaincodeInvocationSpec.newBuilder().setChaincodeSpec(chaincodeSpec).build();
     }
 
     public ProposalBuilder ccType(ChaincodeSpec.Type ccType) {

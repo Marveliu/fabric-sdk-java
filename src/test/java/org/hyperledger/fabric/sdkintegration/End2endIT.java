@@ -856,19 +856,20 @@ public class End2endIT {
         for (String peerName : sampleOrg.getPeerNames()) {
             String peerLocation = sampleOrg.getPeerLocation(peerName);
 
-            Properties peerProperties = testConfig.getPeerProperties(peerName); //test properties for peer.. if any.
+            // test properties for peer.. if any.
+            Properties peerProperties = testConfig.getPeerProperties(peerName);
             if (peerProperties == null) {
                 peerProperties = new Properties();
             }
 
-            //Example of setting specific options on grpc's NettyChannelBuilder
+            // Example of setting specific options on grpc's NettyChannelBuilder
             peerProperties.put("grpc.NettyChannelBuilderOption.maxInboundMessageSize", 9000000);
 
             Peer peer = client.newPeer(peerName, peerLocation, peerProperties);
             // channel 加入peer
             if (testConfig.isFabricVersionAtOrAfter("1.3")) {
-                // 设置peer的权限
-                newChannel.joinPeer(peer, createPeerOptions().setPeerRoles(EnumSet.of(PeerRole.ENDORSING_PEER, PeerRole.LEDGER_QUERY, PeerRole.CHAINCODE_QUERY, PeerRole.EVENT_SOURCE))); //Default is all roles.
+                // 设置peer的权限 Default is all roles, 之后加入到channel里面
+                newChannel.joinPeer(peer, createPeerOptions().setPeerRoles(EnumSet.of(PeerRole.ENDORSING_PEER, PeerRole.LEDGER_QUERY, PeerRole.CHAINCODE_QUERY, PeerRole.EVENT_SOURCE)));
             } else {
                 if (doPeerEventing && everyother) {
                     newChannel.joinPeer(peer, createPeerOptions().setPeerRoles(EnumSet.of(PeerRole.ENDORSING_PEER, PeerRole.LEDGER_QUERY, PeerRole.CHAINCODE_QUERY, PeerRole.EVENT_SOURCE))); //Default is all roles.

@@ -271,6 +271,13 @@ class OrdererClient {
         }
     }
 
+    /**
+     * 投递信封
+     *
+     * @param envelope
+     * @return
+     * @throws TransactionException
+     */
     DeliverResponse[] sendDeliver(Common.Envelope envelope) throws TransactionException {
 
         logger.trace(toString() + " OrdererClient.sendDeliver entered.");
@@ -280,15 +287,14 @@ class OrdererClient {
         }
 
         StreamObserver<Common.Envelope> nso = null;
-
         ManagedChannel lmanagedChannel = managedChannel;
         if (IS_TRACE_LEVEL && lmanagedChannel != null) {
             logger.trace(format("%s  managed channel isTerminated: %b, isShutdown: %b, state: %s", toString(),
                     lmanagedChannel.isTerminated(), lmanagedChannel.isShutdown(), lmanagedChannel.getState(false).name()));
         }
 
+        // 冗余的代码...
         if (lmanagedChannel == null || lmanagedChannel.isTerminated() || lmanagedChannel.isShutdown()) {
-
             if (lmanagedChannel != null && lmanagedChannel.isTerminated()) {
                 logger.warn(format("%s managed channel was marked terminated", toString()));
             }
@@ -297,7 +303,6 @@ class OrdererClient {
             }
             lmanagedChannel = channelBuilder.build();
             managedChannel = lmanagedChannel;
-
         }
 
         if (IS_TRACE_LEVEL && lmanagedChannel != null) {
@@ -322,7 +327,6 @@ class OrdererClient {
 
                 @Override
                 public void onNext(DeliverResponse resp) {
-
                     // logger.info("Got Broadcast response: " + resp);
                     logger.debug(OrdererClient.this.toString() + "sendDeliver resp status value: " + resp.getStatusValue() + ", resp: " + resp.getStatus() + ", type case: " + resp.getTypeCase());
 
@@ -333,10 +337,9 @@ class OrdererClient {
 
                     if (resp.getTypeCase() == STATUS) {
                         done = true;
+                        // 把成功的响应放在首位
                         retList.add(0, resp);
-
                         finishLatch.countDown();
-
                     } else {
                         retList.add(resp);
                     }
@@ -351,12 +354,9 @@ class OrdererClient {
                         managedChannel = null;
                         if (lmanagedChannel == null) {
                             logger.error(OrdererClient.this.toString() + " managed channel was null.");
-
                         } else {
-
                             logger.error(format("%s  managed channel isTerminated: %b, isShutdown: %b, state: %s", OrdererClient.this.toString(),
                                     lmanagedChannel.isTerminated(), lmanagedChannel.isShutdown(), lmanagedChannel.getState(false).name()));
-
                         }
                         logger.error(format("Received error on %s %s",
                                 OrdererClient.this.toString(), t.getMessage()), t);
@@ -376,6 +376,7 @@ class OrdererClient {
             nso.onNext(envelope);
             //nso.onCompleted();
 
+            // 超时等待
             try {
                 if (!finishLatch.await(ordererWaitTimeMilliSecs, TimeUnit.MILLISECONDS)) {
                     TransactionException ex = new TransactionException(format(
@@ -384,7 +385,6 @@ class OrdererClient {
                     throw ex;
                 }
                 logger.trace(toString() + " Done waiting for reply!");
-
             } catch (InterruptedException e) {
                 logger.error(toString() + " " + e.getMessage(), e);
             }
@@ -396,16 +396,13 @@ class OrdererClient {
                 logger.error(e.getMessage(), e);
                 throw e;
             }
-
             return retList.toArray(new DeliverResponse[retList.size()]);
         } catch (Throwable t) {
             managedChannel = null;
             logger.error(toString() + " received error " + t.getMessage(), t);
             throw t;
-
         } finally {
             if (null != nso) {
-
                 try {
                     logger.debug(toString() + "completed.");
                     nso.onCompleted();
@@ -413,7 +410,6 @@ class OrdererClient {
                     logger.debug(format("Exception completing sendDeliver with %s %s",
                             toString(), e.getMessage()), e);
                 }
-
             }
         }
     }
@@ -432,9 +428,9 @@ class OrdererClient {
 
         final boolean isTerminated = lchannel.isTerminated();
         final boolean isShutdown = lchannel.isShutdown();
-        final boolean ret = !lchannel.isShutdown() && !isTerminated; // && ConnectivityState.READY.equals(lchannel.getState(true));
+        // && ConnectivityState.READY.equals(lchannel.getState(true));
+        final boolean ret = !lchannel.isShutdown() && !isTerminated;
         logger.trace(format("%s grpc channel isActive: %b, isShutdown: %b, isTerminated: %b, state: %s ", toString(), ret, isShutdown, isTerminated, "" + lchannel.getState(false)));
-
         return ret;
     }
 }
