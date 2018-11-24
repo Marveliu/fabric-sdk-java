@@ -225,13 +225,11 @@ public class End2endIT {
          */
         sampleStore.saveChannel(barChannel);
         assertFalse(barChannel.isShutdown());
-        runChannel(client, barChannel, true, sampleOrg, 100); //run a newly constructed bar channel with different b value!
-        //let bar channel just shutdown so we have both scenarios.
-
+        // run a newly constructed bar channel with different b value!
+        runChannel(client, barChannel, true, sampleOrg, 100);
+        // let bar channel just shutdown so we have both scenarios.
         out("\nTraverse the blocks for chain %s ", barChannel.getName());
-
         blockWalker(client, barChannel);
-
         assertFalse(barChannel.isShutdown());
         assertTrue(barChannel.isInitialized());
         out("That's all folks!");
@@ -335,7 +333,8 @@ public class End2endIT {
     //CHECKSTYLE.OFF: Method length is 320 lines (max allowed is 150).
     void runChannel(HFClient client, Channel channel, boolean installChaincode, SampleOrg sampleOrg, int delta) {
 
-        class ChaincodeEventCapture { //A test class to capture chaincode events
+        // A test class to capture chaincode events
+        class ChaincodeEventCapture {
             final String handle;
             final BlockEvent blockEvent;
             final ChaincodeEvent chaincodeEvent;
@@ -350,8 +349,8 @@ public class End2endIT {
         // The following is just a test to see if peers and orderers can be added and removed.
         // not pertinent to the code flow.
         testRemovingAddingPeersOrderers(client, channel);
-
-        Vector<ChaincodeEventCapture> chaincodeEvents = new Vector<>(); // Test list to capture chaincode events.
+        // Test list to capture chaincode events.
+        Vector<ChaincodeEventCapture> chaincodeEvents = new Vector<>();
 
         try {
 
@@ -366,13 +365,11 @@ public class End2endIT {
             Collection<ProposalResponse> failed = new LinkedList<>();
 
             // Register a chaincode event listener that will trigger for any chaincode id and only for EXPECTED_EVENT_NAME event.
-
             String chaincodeEventListenerHandle = channel.registerChaincodeEventListener(Pattern.compile(".*"),
                     Pattern.compile(Pattern.quote(EXPECTED_EVENT_NAME)),
                     (handle, blockEvent, chaincodeEvent) -> {
 
                         chaincodeEvents.add(new ChaincodeEventCapture(handle, blockEvent, chaincodeEvent));
-
                         String es = blockEvent.getPeer() != null ? blockEvent.getPeer().getName() : blockEvent.getEventHub().getName();
                         out("RECEIVED Chaincode event with handle: %s, chaincode Id: %s, chaincode event name: %s, "
                                         + "transaction id: %s, event payload: \"%s\", from eventhub: %s",
@@ -404,7 +401,6 @@ public class End2endIT {
                 //
 
                 client.setUserContext(sampleOrg.getPeerAdmin());
-
                 out("Creating install proposal");
 
                 InstallProposalRequest installProposalRequest = client.newInstallProposalRequest();
@@ -412,24 +408,20 @@ public class End2endIT {
 
                 if (isFooChain) {
                     // on foo chain install from directory.
-
                     ////For GO language and serving just a single user, chaincodeSource is mostly likely the users GOPATH
                     installProposalRequest.setChaincodeSourceLocation(Paths.get(TEST_FIXTURES_PATH, CHAIN_CODE_FILEPATH).toFile());
 
                     if (testConfig.isFabricVersionAtOrAfter("1.1")) { // Fabric 1.1 added support for  META-INF in the chaincode image.
-
-                        //This sets an index on the variable a in the chaincode // see http://hyperledger-fabric.readthedocs.io/en/master/couchdb_as_state_database.html#using-couchdb-from-chaincode
+                        // This sets an index on the variable a in the chaincode // see http://hyperledger-fabric.readthedocs.io/en/master/couchdb_as_state_database.html#using-couchdb-from-chaincode
                         // The file IndexA.json as part of the META-INF will be packaged with the source to create the index.
                         installProposalRequest.setChaincodeMetaInfLocation(new File("src/test/fixture/meta-infs/end2endit"));
                     }
                 } else {
-                    // On bar chain install from an input stream.
 
+                    // On bar chain install from an input stream.
                     // For inputstream if indicies are desired the application needs to make sure the META-INF is provided in the stream.
                     // The SDK does not change anything in the stream.
-
                     if (CHAIN_CODE_LANG.equals(Type.GO_LANG)) {
-
                         installProposalRequest.setChaincodeInputStream(Util.generateTarGzInputStream(
                                 (Paths.get(TEST_FIXTURES_PATH, CHAIN_CODE_FILEPATH, "src", CHAIN_CODE_PATH).toFile()),
                                 Paths.get("src", CHAIN_CODE_PATH).toString()));
@@ -448,8 +440,8 @@ public class End2endIT {
                 ////////////////////////////
                 // only a client from the same org as the peer can issue an install request
                 int numInstallProposal = 0;
-                //    Set<String> orgs = orgPeers.keySet();
-                //   for (SampleOrg org : testSampleOrgs) {
+                // Set<String> orgs = orgPeers.keySet();
+                // for (SampleOrg org : testSampleOrgs) {
 
                 Collection<Peer> peers = channel.getPeers();
                 numInstallProposal = numInstallProposal + peers.size();
@@ -467,15 +459,14 @@ public class End2endIT {
 
                 //   }
                 out("Received %d install proposal responses. Successful+verified: %d . Failed: %d", numInstallProposal, successful.size(), failed.size());
-
                 if (failed.size() > 0) {
                     ProposalResponse first = failed.iterator().next();
                     fail("Not enough endorsers for install :" + successful.size() + ".  " + first.getMessage());
                 }
             }
 
-            //   client.setUserContext(sampleOrg.getUser(TEST_ADMIN_NAME));
-            //  final ChaincodeID chaincodeID = firstInstallProposalResponse.getChaincodeID();
+            // client.setUserContext(sampleOrg.getUser(TEST_ADMIN_NAME));
+            // final ChaincodeID chaincodeID = firstInstallProposalResponse.getChaincodeID();
             // Note installing chaincode does not require transaction no need to
             // send to Orderers
 
@@ -493,10 +484,9 @@ public class End2endIT {
             instantiateProposalRequest.setTransientMap(tm);
 
             // 配置chaincode 背书的策略
-            /*
-              policy OR(Org1MSP.member, Org2MSP.member) meaning 1 signature from someone in either Org1 or Org2
-              See README.md Chaincode endorsement policies section for more details.
-            */
+            // policy OR(Org1MSP.member, Org2MSP.member) meaning 1 signature from someone in either Org1 or Org2
+            // See README.md Chaincode endorsement policies section for more details.
+
             ChaincodeEndorsementPolicy chaincodeEndorsementPolicy = new ChaincodeEndorsementPolicy();
             chaincodeEndorsementPolicy.fromYamlFile(new File(TEST_FIXTURES_PATH + "/sdkintegration/chaincodeendorsementpolicy.yaml"));
             instantiateProposalRequest.setChaincodeEndorsementPolicy(chaincodeEndorsementPolicy);
@@ -505,7 +495,8 @@ public class End2endIT {
             successful.clear();
             failed.clear();
 
-            if (isFooChain) {  //Send responses both ways with specifying peers and by using those on the channel.
+            if (isFooChain) {
+                // Send responses both ways with specifying peers and by using those on the channel.
                 responses = channel.sendInstantiationProposal(instantiateProposalRequest, channel.getPeers());
             } else {
                 responses = channel.sendInstantiationProposal(instantiateProposalRequest);
@@ -521,20 +512,19 @@ public class End2endIT {
             out("Received %d instantiate proposal responses. Successful+verified: %d . Failed: %d", responses.size(), successful.size(), failed.size());
             if (failed.size() > 0) {
                 for (ProposalResponse fail : failed) {
-
                     out("Not enough endorsers for instantiate :" + successful.size() + "endorser failed with " + fail.getMessage() + ", on peer" + fail.getPeer());
-
                 }
                 ProposalResponse first = failed.iterator().next();
                 fail("Not enough endorsers for instantiate :" + successful.size() + "endorser failed with " + first.getMessage() + ". Was verified:" + first.isVerified());
             }
+
             ///////////////
             /// Send instantiate transaction to orderer
             out("Sending instantiateTransaction to orderer with a and b set to 100 and %s respectively", "" + (200 + delta));
 
-            //Specify what events should complete the interest in this transaction. This is the default
+            // Specify what events should complete the interest in this transaction. This is the default
             // for all to complete. It's possible to specify many different combinations like
-            //any from a group, all from one group and just one from another or even None(NOfEvents.createNoEvents).
+            // any from a group, all from one group and just one from another or even None(NOfEvents.createNoEvents).
             // See. Channel.NOfEvents
             Channel.NOfEvents nOfEvents = createNofEvents();
             if (!channel.getPeers(EnumSet.of(PeerRole.EVENT_SOURCE)).isEmpty()) {
@@ -552,7 +542,6 @@ public class End2endIT {
             ).thenApply(transactionEvent -> {
 
                 waitOnFabric(0);
-
                 assertTrue(transactionEvent.isValid()); // must be valid to be here.
 
                 assertNotNull(transactionEvent.getSignature()); //musth have a signature.
@@ -636,9 +625,9 @@ public class End2endIT {
                         resultAsString = new String(x, UTF_8);
                     }
                     assertEquals(":)", resultAsString);
-
                     assertEquals(expectedMoveRCMap.get(channelName).longValue(), resp.getChaincodeActionResponseStatus()); //Chaincode's status.
 
+                    // 检查交易的读写集
                     TxReadWriteSetInfo readWriteSetInfo = resp.getChaincodeActionResponseReadWriteSetInfo();
                     //See blockwalker below how to transverse this
                     assertNotNull(readWriteSetInfo);
@@ -649,11 +638,8 @@ public class End2endIT {
                     final String path = cid.getPath();
                     if (null == CHAIN_CODE_PATH) {
                         assertTrue(path == null || "".equals(path));
-
                     } else {
-
                         assertEquals(CHAIN_CODE_PATH, path);
-
                     }
 
                     assertEquals(CHAIN_CODE_NAME, cid.getName());
@@ -663,13 +649,11 @@ public class End2endIT {
                     // Send Transaction Transaction to orderer
                     out("Sending chaincode transaction(move a,b,100) to orderer.");
                     return channel.sendTransaction(successful).get(testConfig.getTransactionWaitTime(), TimeUnit.SECONDS);
-
                 } catch (Exception e) {
                     out("Caught an exception while invoking chaincode");
                     e.printStackTrace();
                     fail("Failed invoking chaincode with error : " + e.getMessage());
                 }
-
                 return null;
 
             }).thenApply(transactionEvent -> {
@@ -708,14 +692,12 @@ public class End2endIT {
                             assertEquals(payload, expect);
                         }
                     }
-
                     return null;
                 } catch (Exception e) {
                     out("Caught exception while running query");
                     e.printStackTrace();
                     fail("Failed during chaincode query with error : " + e.getMessage());
                 }
-
                 return null;
             }).exceptionally(e -> {
                 if (e instanceof TransactionEventException) {
@@ -724,7 +706,6 @@ public class End2endIT {
                         throw new AssertionError(format("Transaction with txid %s failed. %s", te.getTransactionID(), e.getMessage()), e);
                     }
                 }
-
                 throw new AssertionError(format("Test failed with %s exception %s", e.getClass().getName(), e.getMessage()), e);
 
             }).get(testConfig.getTransactionWaitTime(), TimeUnit.SECONDS);
@@ -733,9 +714,9 @@ public class End2endIT {
 
             // We can only send channel queries to peers that are in the same org as the SDK user context
             // Get the peers from the current org being used and pick one randomly to send the queries to.
-            //  Set<Peer> peerSet = sampleOrg.getPeers();
-            //  Peer queryPeer = peerSet.iterator().next();
-            //   out("Using peer %s for channel queries", queryPeer.getName());
+            // Set<Peer> peerSet = sampleOrg.getPeers();
+            // Peer queryPeer = peerSet.iterator().next();
+            // out("Using peer %s for channel queries", queryPeer.getName());
 
             BlockchainInfo channelInfo = channel.queryBlockchainInfo();
             out("Channel info for : " + channelName);
@@ -793,19 +774,15 @@ public class End2endIT {
                     assertEquals(EXPECTED_EVENT_NAME, chaincodeEventCapture.chaincodeEvent.getEventName());
                     assertTrue(Arrays.equals(EXPECTED_EVENT_DATA, chaincodeEventCapture.chaincodeEvent.getPayload()));
                     assertEquals(CHAIN_CODE_NAME, chaincodeEventCapture.chaincodeEvent.getChaincodeId());
-
                     BlockEvent blockEvent = chaincodeEventCapture.blockEvent;
                     assertEquals(channelName, blockEvent.getChannelId());
                     //   assertTrue(channel.getEventHubs().contains(blockEvent.getEventHub()));
-
                 }
 
             } else {
                 assertTrue(chaincodeEvents.isEmpty());
             }
-
             out("Running for Channel %s done", channelName);
-
         } catch (Exception e) {
             out("Caught an exception running channel %s", channel.getName());
             e.printStackTrace();
@@ -850,7 +827,6 @@ public class End2endIT {
 
         out("Created channel %s", name);
 
-        // todo: Read
         // test with both cases when doing peer eventing.
         boolean everyother = true;
         for (String peerName : sampleOrg.getPeerNames()) {
@@ -881,37 +857,33 @@ public class End2endIT {
             out("Peer %s joined channel %s", peerName, name);
             everyother = !everyother;
         }
-        //just for testing ...
+        // just for testing ...
         if (doPeerEventing || testConfig.isFabricVersionAtOrAfter("1.3")) {
             // Make sure there is one of each type peer at the very least.
             assertFalse(newChannel.getPeers(EnumSet.of(PeerRole.EVENT_SOURCE)).isEmpty());
             assertFalse(newChannel.getPeers(PeerRole.NO_EVENT_SOURCE).isEmpty());
         }
 
-        for (Orderer orderer : orderers) { //add remaining orderers if any.
+        for (Orderer orderer : orderers) { // add remaining orderers if any.
             newChannel.addOrderer(orderer);
         }
 
-        // EventHub
+        // EventHub 配置
         for (String eventHubName : sampleOrg.getEventHubNames()) {
             final Properties eventHubProperties = testConfig.getEventHubProperties(eventHubName);
             eventHubProperties.put("grpc.NettyChannelBuilderOption.keepAliveTime", new Object[]{5L, TimeUnit.MINUTES});
             eventHubProperties.put("grpc.NettyChannelBuilderOption.keepAliveTimeout", new Object[]{8L, TimeUnit.SECONDS});
-            EventHub eventHub = client.newEventHub(eventHubName, sampleOrg.getEventHubLocation(eventHubName),
-                    eventHubProperties);
+            EventHub eventHub = client.newEventHub(eventHubName, sampleOrg.getEventHubLocation(eventHubName), eventHubProperties);
             newChannel.addEventHub(eventHub);
         }
 
         newChannel.initialize();
 
         out("Finished initialization channel %s", name);
-
-        //Just checks if channel can be serialized and deserialized .. otherwise this is just a waste :)
+        // Just checks if channel can be serialized and deserialized .. otherwise this is just a waste :)
         byte[] serializedChannelBytes = newChannel.serializeChannel();
         newChannel.shutdown(true);
-
         return client.deSerializeChannel(serializedChannelBytes).initialize();
-
     }
 
     private void waitOnFabric(int additional) {
@@ -1072,9 +1044,7 @@ public class End2endIT {
                             }
                         }
                     }
-
                     assertEquals(transactionCount, returnedBlock.getTransactionCount());
-
                 }
             }
             if (!TX_EXPECTED.isEmpty()) {

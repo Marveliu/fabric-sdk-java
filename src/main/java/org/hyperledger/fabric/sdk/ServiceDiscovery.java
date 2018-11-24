@@ -109,18 +109,18 @@ public class ServiceDiscovery {
     }
 
     class SDNetwork {
+
         final Map<String, List<byte[]>> tlsCerts = new HashMap<>();
         final Map<String, List<byte[]>> tlsIntermCerts = new HashMap<>();
+
         long discoveryTime;
 
         void addTlsCert(String mspid, byte[] cert) {
             tlsCerts.computeIfAbsent(mspid, k -> new LinkedList<>()).add(cert);
-
         }
 
         void addTlsIntermCert(String mspid, byte[] cert) {
             tlsIntermCerts.computeIfAbsent(mspid, k -> new LinkedList<>()).add(cert);
-
         }
 
         SDEndorser getEndorserByEndpoint(String endpoint) {
@@ -140,19 +140,17 @@ public class ServiceDiscovery {
         }
 
         Collection<SDOrderer> getSDOrderers() {
-
             return ordererEndpoints.values();
-
         }
 
         Set<String> getPeerEndpoints() {
-
             return Collections.unmodifiableSet(endorsers.keySet());
         }
 
         Set<String> chaincodeNames = null;
 
         Set<String> getChaincodesNames() {
+
             if (null == chaincodeNames) {
 
                 if (null == endorsers) {
@@ -168,16 +166,13 @@ public class ServiceDiscovery {
                 });
                 chaincodeNames = ret;
             }
-
             return chaincodeNames;
-
         }
 
         Collection<byte[]> getTlsCerts(String mspid) {
             final Collection<byte[]> bytes = tlsCerts.get(mspid);
             if (null == bytes) {
                 return Collections.emptyList();
-
             }
             return Collections.unmodifiableCollection(bytes);
         }
@@ -186,10 +181,8 @@ public class ServiceDiscovery {
             final Collection<byte[]> bytes = tlsIntermCerts.get(mspid);
             if (null == bytes) {
                 return Collections.emptyList();
-
             }
             return Collections.unmodifiableCollection(bytes);
-
         }
     }
 
@@ -202,55 +195,54 @@ public class ServiceDiscovery {
         logger.trace(format("Network discovery force: %b", force));
 
         ArrayList<Peer> speers = new ArrayList<>(serviceDiscoveryPeers);
+        // 洗牌节点
         Collections.shuffle(speers);
         SDNetwork ret = sdNetwork;
 
         if (!force && null != ret && ret.discoveryTime + SERVICE_DISCOVER_FREQ_SECONDS * 1000 > System.currentTimeMillis()) {
-
             return ret;
         }
         ret = null;
 
+
         for (Peer serviceDiscoveryPeer : speers) {
-
             try {
-
                 SDNetwork lsdNetwork = new SDNetwork();
 
                 final byte[] clientTLSCertificateDigest = serviceDiscoveryPeer.getClientTLSCertificateDigest();
-
                 logger.info(format("Channel %s doing discovery with peer: %s", channelName, serviceDiscoveryPeer.toString()));
-
                 if (null == clientTLSCertificateDigest) {
                     throw new RuntimeException(format("Channel %s, peer %s requires mutual tls for service discovery.", channelName, serviceDiscoveryPeer));
                 }
 
+                // 构建验证信息
                 ByteString clientIdent = ltransactionContext.getIdentity().toByteString();
                 ByteString tlshash = ByteString.copyFrom(clientTLSCertificateDigest);
                 Protocol.AuthInfo authentication = Protocol.AuthInfo.newBuilder().setClientIdentity(clientIdent).setClientTlsCertHash(tlshash).build();
 
+                // 配置查询类型
                 List<Protocol.Query> fq = new ArrayList<>(2);
-
                 fq.add(Protocol.Query.newBuilder().setChannel(channelName).setConfigQuery(Protocol.ConfigQuery.newBuilder().build()).build());
-
                 fq.add(Protocol.Query.newBuilder().setChannel(channelName).setPeerQuery(Protocol.PeerMembershipQuery.newBuilder().build()).build());
 
+                // 签名
                 Protocol.Request request = Protocol.Request.newBuilder().addAllQueries(fq).setAuthentication(authentication).build();
                 ByteString payloadBytes = request.toByteString();
                 ByteString signatureBytes = ltransactionContext.signByteStrings(payloadBytes);
-                Protocol.SignedRequest sr = Protocol.SignedRequest.newBuilder()
-                        .setPayload(payloadBytes).setSignature(signatureBytes).build();
+                Protocol.SignedRequest sr = Protocol.SignedRequest.newBuilder().setPayload(payloadBytes).setSignature(signatureBytes).build();
 
-                if (IS_TRACE_LEVEL && null != diagnosticFileDumper) { // dump protobuf we sent
+                // dump protobuf we sent
+                if (IS_TRACE_LEVEL && null != diagnosticFileDumper) {
                     logger.trace(format("Service discovery channel %s %s service chaincode query sent %s", channelName, serviceDiscoveryPeer,
                             diagnosticFileDumper.createDiagnosticProtobufFile(sr.toByteArray())));
                 }
 
+                // 发送发现请求，并等待直到获得结果
                 final Protocol.Response response = serviceDiscoveryPeer.sendDiscoveryRequestAsync(sr).get(SERVICE_DISCOVERY_WAITTIME, TimeUnit.MILLISECONDS);
 
-                if (IS_TRACE_LEVEL && null != diagnosticFileDumper) { // dump protobuf we get
-                    logger.trace(format("Service discovery channel %s %s service discovery returned %s", channelName, serviceDiscoveryPeer,
-                            diagnosticFileDumper.createDiagnosticProtobufFile(response.toByteArray())));
+                // dump protobuf we get
+                if (IS_TRACE_LEVEL && null != diagnosticFileDumper) {
+                    logger.trace(format("Service discovery channel %s %s service discovery returned %s", channelName, serviceDiscoveryPeer, diagnosticFileDumper.createDiagnosticProtobufFile(response.toByteArray())));
                 }
 
                 serviceDiscoveryPeer.hasConnected();
@@ -258,7 +250,7 @@ public class ServiceDiscovery {
                 Protocol.QueryResult queryResult;
                 Protocol.QueryResult queryResult2;
 
-                queryResult = resultsList.get(0); //configquery
+                queryResult = resultsList.get(0);
                 if (queryResult.getResultCase().getNumber() == Protocol.QueryResult.ERROR_FIELD_NUMBER) {
                     logger.warn(format("Channel %s peer: %s error during service discovery %s", channelName, serviceDiscoveryPeer.toString(), queryResult.getError().getContent()));
                     continue;
@@ -268,8 +260,9 @@ public class ServiceDiscovery {
                     logger.warn(format("Channel %s peer %s service discovery error %s", channelName, serviceDiscoveryPeer.toString(), queryResult2.getError().getContent()));
                     continue;
                 }
-                Protocol.ConfigResult configResult = queryResult.getConfigResult();
 
+                Protocol.ConfigResult configResult = queryResult.getConfigResult();
+                // 获得MSP配置
                 Map<String, MspConfig.FabricMSPConfig> msps = configResult.getMspsMap();
                 Set<ByteString> cbbs = new HashSet<>(msps.size() * 4);
 
@@ -278,24 +271,22 @@ public class ServiceDiscovery {
                     final String mspid = value.getName();
                     cbbs.addAll(value.getRootCertsList());
                     cbbs.addAll(value.getIntermediateCertsList());
-
                     value.getTlsRootCertsList().forEach(bytes -> lsdNetwork.addTlsCert(mspid, bytes.toByteArray()));
-
                     value.getTlsIntermediateCertsList().forEach(bytes -> lsdNetwork.addTlsIntermCert(mspid, bytes.toByteArray()));
                 }
 
                 List<byte[]> toaddCerts = new LinkedList<>();
 
                 synchronized (certs) {
-
                     cbbs.forEach(bytes -> {
                         if (certs.add(bytes)) {
                             toaddCerts.add(bytes.toByteArray());
                         }
                     });
-
                 }
-                if (!toaddCerts.isEmpty()) { // add them to crypto store.
+
+                // add them to crypto store.
+                if (!toaddCerts.isEmpty()) {
                     channel.client.getCryptoSuite().loadCACertificatesAsBytes(toaddCerts);
                 }
 
@@ -303,7 +294,6 @@ public class ServiceDiscovery {
                 Map<String, Protocol.Endpoints> orderersMap = configResult.getOrderersMap();
                 for (Map.Entry<String, Protocol.Endpoints> i : orderersMap.entrySet()) {
                     final String mspid = i.getKey();
-
                     Protocol.Endpoints value = i.getValue();
                     for (Protocol.Endpoint l : value.getEndpointList()) {
                         logger.trace(format("Channel %s discovered orderer MSPID: %s, endpoint: %s:%s", channelName, mspid, l.getHost(), l.getPort()));
@@ -314,30 +304,25 @@ public class ServiceDiscovery {
                         ordererEndpoints.put(sdOrderer.getEndPoint(), sdOrderer);
                     }
                 }
+
                 lsdNetwork.ordererEndpoints = ordererEndpoints;
-
                 Protocol.PeerMembershipResult membership = queryResult2.getMembers();
-
                 lsdNetwork.endorsers = new HashMap<>();
 
                 for (Map.Entry<String, Protocol.Peers> peers : membership.getPeersByOrgMap().entrySet()) {
                     final String mspId = peers.getKey();
                     Protocol.Peers peer = peers.getValue();
-
                     for (Protocol.Peer pp : peer.getPeersList()) {
-
                         SDEndorser ppp = new SDEndorser(pp, lsdNetwork.getTlsCerts(mspId), lsdNetwork.getTlsIntermediateCerts(mspId));
                         logger.trace(format("Channel %s discovered peer MSPID: %s, endpoint: %s", channelName, mspId, ppp.getEndpoint()));
                         lsdNetwork.endorsers.put(ppp.getEndpoint(), ppp);
-
                     }
                 }
                 lsdNetwork.discoveryTime = System.currentTimeMillis();
-
                 sdNetwork = lsdNetwork;
                 ret = lsdNetwork;
+                // 任意一个节点找到就好了
                 break;
-
             } catch (Exception e) {
                 logger.warn(format("Channel %s peer %s service discovery error %s", channelName, serviceDiscoveryPeer, e.getMessage()));
             }
@@ -1276,16 +1261,14 @@ public class ServiceDiscovery {
         }
 
         if (seviceDiscovery == null) {
-            // 线程进行服务发现
+            // 定时进行服务发现
             seviceDiscovery = Executors.newSingleThreadScheduledExecutor(r -> {
                 Thread t = Executors.defaultThreadFactory().newThread(r);
                 t.setDaemon(true);
                 return t;
             }).scheduleAtFixedRate(() -> {
-
                 logger.debug(format("Channel %s starting service rediscovery after %d seconds.", channelName, SERVICE_DISCOVER_FREQ_SECONDS));
                 fullNetworkDiscovery(true);
-
             }, SERVICE_DISCOVER_FREQ_SECONDS, SERVICE_DISCOVER_FREQ_SECONDS, TimeUnit.SECONDS);
         }
 
@@ -1303,13 +1286,15 @@ public class ServiceDiscovery {
         }
         logger.trace(format("Full network discovery force: %b", force));
         try {
+
             SDNetwork osdNetwork = sdNetwork;
             SDNetwork lsdNetwork = networkDiscovery(transactionContext.retryTransactionSameContext(), force);
             if (channel.isShutdown() || null == lsdNetwork) {
                 return null;
             }
 
-            if (osdNetwork != lsdNetwork) { // means it changed.
+            // means it changed.
+            if (osdNetwork != lsdNetwork) {
                 final Set<String> chaincodesNames = lsdNetwork.getChaincodesNames();
                 List<List<ServiceDiscoveryChaincodeCalls>> lcc = new LinkedList<>();
                 chaincodesNames.forEach(s -> {

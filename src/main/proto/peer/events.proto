@@ -127,29 +127,28 @@ message SignedEvent {
     bytes eventBytes = 2;
 }
 
-//Event is used by
+// Event is used by
 //  - consumers (adapters) to send Register
 //  - producer to advertise supported types and events
 message Event {
     oneof Event {
-        //Register consumer sent event
+
+        // Register consumer sent event
         Register register = 1;
 
-        //producer events
+        // producer events
         common.Block block = 2;
         ChaincodeEvent chaincode_event = 3;
         Rejection rejection = 4;
 
-        //Unregister consumer sent events
+        // Unregister consumer sent events
         Unregister unregister = 5;
-
         FilteredBlock filtered_block = 7;
     }
     // Creator of the event, specified as a certificate chain
     bytes creator = 6;
     // Timestamp of the client - used to mitigate replay attacks
     google.protobuf.Timestamp timestamp = 8;
-
     // If mutual TLS is employed, this represents
     // the hash of the client's TLS certificate
     bytes tls_cert_hash = 9;

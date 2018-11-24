@@ -348,10 +348,8 @@ public final class Utils {
      */
     public static Exception checkGrpcUrl(String url) {
         try {
-
             parseGrpcUrl(url);
             return null;
-
         } catch (Exception e) {
             return e;
         }

@@ -197,7 +197,7 @@ message FabricOUIdentifier {
 // that does not contain any of the specified OU will be considered invalid.
 message FabricNodeOUs {
     // If true then an msp identity that does not contain any of the specified OU will be considered invalid.
-    bool   enable = 1;
+    bool enable = 1;
 
     // OU Identifier of the clients
     FabricOUIdentifier client_ou_identifier = 2;

@@ -270,30 +270,24 @@ public final class ProtoUtils {
      * @throws InvalidArgumentException
      */
     public static Envelope createSeekInfoEnvelope(TransactionContext transactionContext, SeekInfo seekInfo, byte[] tlsCertHash) throws CryptoException, InvalidArgumentException {
-
         ChannelHeader seekInfoHeader = createChannelHeader(Common.HeaderType.DELIVER_SEEK_INFO,
                 transactionContext.getTxID(), transactionContext.getChannelID(), transactionContext.getEpoch(),
                 transactionContext.getFabricTimestamp(), null, tlsCertHash);
-
         SignatureHeader signatureHeader = SignatureHeader.newBuilder()
                 .setCreator(transactionContext.getIdentity().toByteString())
                 .setNonce(transactionContext.getNonce())
                 .build();
-
         Common.Header seekHeader = Common.Header.newBuilder()
                 .setSignatureHeader(signatureHeader.toByteString())
                 .setChannelHeader(seekInfoHeader.toByteString())
                 .build();
-
         Payload seekPayload = Payload.newBuilder()
                 .setHeader(seekHeader)
                 .setData(seekInfo.toByteString())
                 .build();
-
         return Envelope.newBuilder().setSignature(transactionContext.signByteString(seekPayload.toByteArray()))
                 .setPayload(seekPayload.toByteString())
                 .build();
-
     }
 
     /**

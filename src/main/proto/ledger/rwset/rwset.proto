@@ -34,9 +34,9 @@ message TxReadWriteSet {
 
 // NsReadWriteSet encapsulates the read-write set for a chaincode
 message NsReadWriteSet {
-   string namespace = 1;
-   bytes rwset = 2; // Data model specific serialized proto message (e.g., kvrwset.KVRWSet for KV and Document data models)
-   repeated CollectionHashedReadWriteSet collection_hashed_rwset = 3;
+    string namespace = 1;
+    bytes rwset = 2; // Data model specific serialized proto message (e.g., kvrwset.KVRWSet for KV and Document data models)
+    repeated CollectionHashedReadWriteSet collection_hashed_rwset = 3;
 }
 
 // CollectionHashedReadWriteSet encapsulate the hashed representation for the private read-write set for a collection

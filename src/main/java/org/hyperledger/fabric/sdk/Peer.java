@@ -80,6 +80,14 @@ public class Peer implements Serializable {
         return connected;
     }
 
+    /**
+     * 构建Peer
+     *
+     * @param name
+     * @param grpcURL
+     * @param properties
+     * @throws InvalidArgumentException
+     */
     Peer(String name, String grpcURL, Properties properties) throws InvalidArgumentException {
         reconnectCount = new AtomicLong(0L);
         id = config.getNextID();
@@ -136,21 +144,21 @@ public class Peer implements Serializable {
         return channel.getExecutorService();
     }
 
+    /**
+     * 初始事件监听，单例生成peerEventingClient
+     *
+     * @param transactionContext
+     * @param peersOptions
+     * @throws TransactionException
+     */
     void initiateEventing(TransactionContext transactionContext, PeerOptions peersOptions) throws TransactionException {
-
         this.transactionContext = transactionContext.retryTransactionSameContext();
-
         if (peerEventingClient == null) {
-
-            //PeerEventServiceClient(Peer peer, ManagedChannelBuilder<?> channelBuilder, Properties properties)
-            //   peerEventingClient = new PeerEventServiceClient(this, new HashSet<Channel>(Arrays.asList(new Channel[] {channel})));
-
+            // PeerEventServiceClient(Peer peer, ManagedChannelBuilder<?> channelBuilder, Properties properties)
+            // peerEventingClient = new PeerEventServiceClient(this, new HashSet<Channel>(Arrays.asList(new Channel[] {channel})));
             peerEventingClient = new PeerEventServiceClient(this, Endpoint.createEndpoint(url, properties), properties, peersOptions);
-
             peerEventingClient.connect(transactionContext);
-
         }
-
     }
 
     /**
@@ -217,6 +225,14 @@ public class Peer implements Serializable {
         return Objects.hash(name, url);
     }
 
+    /**
+     * 异步发送提按
+     *
+     * @param proposal
+     * @return
+     * @throws PeerException
+     * @throws InvalidArgumentException
+     */
     ListenableFuture<FabricProposalResponse.ProposalResponse> sendProposalAsync(FabricProposal.SignedProposal proposal)
             throws PeerException, InvalidArgumentException {
         checkSendProposal(proposal);
@@ -224,9 +240,7 @@ public class Peer implements Serializable {
         if (IS_DEBUG_LEVEL) {
             logger.debug(format("peer.sendProposalAsync %s", toString()));
         }
-
         EndorserClient localEndorserClient = getEndorserClient();
-
         try {
             return localEndorserClient.sendProposalAsync(proposal);
         } catch (Throwable t) {
@@ -235,9 +249,14 @@ public class Peer implements Serializable {
         }
     }
 
+    /**
+     * 获得背书客户端，单例模式
+     *
+     * @return
+     */
     private synchronized EndorserClient getEndorserClient() {
-        EndorserClient localEndorserClient = endorserClent; //work off thread local copy.
-
+        // work off thread local copy.
+        EndorserClient localEndorserClient = endorserClent;
         if (null == localEndorserClient || !localEndorserClient.isChannelActive()) {
             if (IS_TRACE_LEVEL) {
                 logger.trace(format("Channel %s creating new endorser client %s", channelName, toString()));
@@ -271,13 +290,17 @@ public class Peer implements Serializable {
         }
     }
 
+    /**
+     * @param discoveryRequest
+     * @return
+     * @throws PeerException
+     * @throws InvalidArgumentException
+     */
     ListenableFuture<Protocol.Response> sendDiscoveryRequestAsync(Protocol.SignedRequest discoveryRequest)
             throws PeerException, InvalidArgumentException {
 
         logger.debug(format("peer.sendDiscoveryRequstAsync %s", toString()));
-
         EndorserClient localEndorserClient = getEndorserClient();
-
         try {
             return localEndorserClient.sendDiscoveryRequestAsync(discoveryRequest);
         } catch (Throwable t) {
@@ -361,34 +384,41 @@ public class Peer implements Serializable {
         super.finalize();
     }
 
+    /**
+     * 重连
+     *
+     * @param failedPeerEventServiceClient
+     * @param throwable
+     */
     void reconnectPeerEventServiceClient(final PeerEventServiceClient failedPeerEventServiceClient,
                                          final Throwable throwable) {
         if (shutdown) {
             logger.debug(toString() + "not reconnecting PeerEventServiceClient shutdown ");
             return;
-
         }
+
         PeerEventingServiceDisconnected ldisconnectedHandler = disconnectedHandler;
         if (null == ldisconnectedHandler) {
-
-            return; // just wont reconnect.
-
+            // just wont reconnect.
+            return;
         }
+
         TransactionContext ltransactionContext = transactionContext;
         if (ltransactionContext == null) {
-
             logger.warn(toString() + " not reconnecting PeerEventServiceClient no transaction available ");
             return;
         }
 
         final TransactionContext fltransactionContext = ltransactionContext.retryTransactionSameContext();
-
         final ExecutorService executorService = getExecutorService();
         final PeerOptions peerOptions = null != failedPeerEventServiceClient.getPeerOptions() ? failedPeerEventServiceClient.getPeerOptions() :
                 PeerOptions.createPeerOptions();
+
         if (!shutdown && executorService != null && !executorService.isShutdown() && !executorService.isTerminated()) {
 
+            // 异步执行
             executorService.execute(() -> ldisconnectedHandler.disconnected(new PeerEventingServiceDisconnectEvent() {
+
                 @Override
                 public BlockEvent getLatestBLockReceived() {
                     return lastBlockEvent;
@@ -411,25 +441,22 @@ public class Peer implements Serializable {
 
                 @Override
                 public void reconnect(Long startBLockNumber) throws TransactionException {
+                    // 重连机制，注意原子操作
                     logger.trace(format("%s reconnecting. Starting block number: %s", Peer.this.toString(), startBLockNumber == null ? "newest" : startBLockNumber));
                     reconnectCount.getAndIncrement();
-
+                    // 调整时间监听区块的状态
                     if (startBLockNumber == null) {
                         peerOptions.startEventsNewest();
                     } else {
                         peerOptions.startEvents(startBLockNumber);
                     }
-
-                    PeerEventServiceClient lpeerEventingClient = new PeerEventServiceClient(Peer.this,
-                            Endpoint.createEndpoint(url, properties), properties, peerOptions);
+                    // 重新设置节点事件客户端
+                    PeerEventServiceClient lpeerEventingClient = new PeerEventServiceClient(Peer.this, Endpoint.createEndpoint(url, properties), properties, peerOptions);
                     lpeerEventingClient.connect(fltransactionContext);
                     peerEventingClient = lpeerEventingClient;
-
                 }
             }));
-
         }
-
     }
 
     void setLastConnectTime(long lastConnectTime) {
@@ -478,6 +505,7 @@ public class Peer implements Serializable {
 
     }
 
+
     public interface PeerEventingServiceDisconnectEvent {
 
         /**
@@ -517,16 +545,22 @@ public class Peer implements Serializable {
 
     private transient PeerEventingServiceDisconnected disconnectedHandler = getDefaultDisconnectHandler();
 
+    /**
+     * 默认重连实现类
+     *
+     * @return
+     */
     private static PeerEventingServiceDisconnected getDefaultDisconnectHandler() {
-        return new PeerEventingServiceDisconnected() { //default.
+
+        return new PeerEventingServiceDisconnected() {
+
+            // 默认实现
             @Override
             public synchronized void disconnected(final PeerEventingServiceDisconnectEvent event) {
 
                 BlockEvent lastBlockEvent = event.getLatestBLockReceived();
                 Throwable thrown = event.getExceptionThrown();
-
                 long sleepTime = PEER_EVENT_RETRY_WAIT_TIME;
-
                 if (thrown instanceof PeerEventingServiceException) {
                     // means we connected and got an error or connected but timout waiting on the response
                     // not going away.. sleep longer.
@@ -534,10 +568,9 @@ public class Peer implements Serializable {
                     //don't flood server.
                 }
 
+                // 获得上一次监听的区块数，分为简区块和区块
                 Long startBlockNumber = null;
-
                 if (null != lastBlockEvent) {
-
                     startBlockNumber = lastBlockEvent.getBlockNumber();
                 }
 
@@ -548,6 +581,7 @@ public class Peer implements Serializable {
                 }
 
                 try {
+                    // 从指定区块数开始监听
                     event.reconnect(startBlockNumber);
                 } catch (TransactionException e) {
                     logger.warn(toString() + " " + e.getMessage());

@@ -127,8 +127,7 @@ public class ProposalResponse extends ChaincodeResponse {
             byte[] data = null;
 
             try {
-                Identities.SerializedIdentity endorser = Identities.SerializedIdentity
-                        .parseFrom(endorsement.getEndorser());
+                Identities.SerializedIdentity endorser = Identities.SerializedIdentity.parseFrom(endorsement.getEndorser());
                 ByteString plainText = proposalResponse.getPayload().concat(endorsement.getEndorser());
 
                 if (config.extraLogLevel(10)) {
@@ -137,18 +136,15 @@ public class ProposalResponse extends ChaincodeResponse {
                         StringBuilder sb = new StringBuilder(10000);
                         sb.append("payload TransactionBuilderbytes in hex: " + DatatypeConverter.printHexBinary(proposalResponse.getPayload().toByteArray()));
                         sb.append("\n");
-                        sb.append("endorser bytes in hex: "
-                                + DatatypeConverter.printHexBinary(endorsement.getEndorser().toByteArray()));
+                        sb.append("endorser bytes in hex: " + DatatypeConverter.printHexBinary(endorsement.getEndorser().toByteArray()));
                         sb.append("\n");
                         sb.append("plainText bytes in hex: " + DatatypeConverter.printHexBinary(plainText.toByteArray()));
-
-                        logger.trace("payload TransactionBuilderbytes:  " +
-                                diagnosticFileDumper.createDiagnosticFile(sb.toString()));
+                        logger.trace("payload TransactionBuilderbytes:  " + diagnosticFileDumper.createDiagnosticFile(sb.toString()));
                     }
-
                 }
 
-                if (sig == null || sig.isEmpty()) { // we shouldn't get here ...
+                // we shouldn't get here ...
+                if (sig == null || sig.isEmpty()) {
                     logger.warn(format("%s %s returned signature is empty verify set to false.", peer, getTransactionID()));
                     this.isVerified = false;
                 } else {
@@ -157,8 +153,7 @@ public class ProposalResponse extends ChaincodeResponse {
                     signature = sig.toByteArray();
                     data = plainText.toByteArray();
 
-                    this.isVerified = crypto.verify(endorserCertifcate, config.getSignatureAlgorithm(),
-                            signature, data);
+                    this.isVerified = crypto.verify(endorserCertifcate, config.getSignatureAlgorithm(), signature, data);
                     if (!this.isVerified) {
                         logger.warn(format("%s transaction: %s verify: Failed to verify. Endorsers certificate: %s, " +
                                         "signature: %s, signing algorithm: %s, signed data: %s.",
@@ -178,9 +173,7 @@ public class ProposalResponse extends ChaincodeResponse {
                 logger.error(format("%s transaction: %s verify: Cannot retrieve peer identity from ProposalResponse. Error is: %s", peer, getTransactionID(), e.getMessage()), e);
                 this.isVerified = false;
             }
-
             logger.debug(format("%s finished verify for transaction %s returning %b", peer, getTransactionID(), this.isVerified));
-
             return this.isVerified;
         } finally {
             hasBeenVerified = true;

@@ -52,8 +52,8 @@ class Util {
      * @throws IOException
      */
     public static InputStream generateTarGzInputStream(File src, String pathPrefix) throws IOException {
-        File sourceDirectory = src;
 
+        File sourceDirectory = src;
         ByteArrayOutputStream bos = new ByteArrayOutputStream(500000);
 
         String sourcePath = sourceDirectory.getAbsolutePath();

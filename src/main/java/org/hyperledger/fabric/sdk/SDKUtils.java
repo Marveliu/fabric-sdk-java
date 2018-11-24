@@ -118,7 +118,6 @@ public class SDKUtils {
         HashMap<ByteString, Set<ProposalResponse>> ret = new HashMap<>();
 
         for (ProposalResponse proposalResponse : proposalResponses) {
-
             if (proposalResponse.isInvalid()) {
                 invalid.add(proposalResponse);
             } else {
@@ -126,11 +125,9 @@ public class SDKUtils {
                 final ByteString payloadBytes = proposalResponse.getPayloadBytes();
 
                 if (payloadBytes == null) {
-                    throw new InvalidArgumentException(format("proposalResponse.getPayloadBytes() was null from peer: %s.",
-                            proposalResponse.getPeer()));
+                    throw new InvalidArgumentException(format("proposalResponse.getPayloadBytes() was null from peer: %s.", proposalResponse.getPeer()));
                 } else if (payloadBytes.isEmpty()) {
-                    throw new InvalidArgumentException(format("proposalResponse.getPayloadBytes() was empty from peer: %s.",
-                            proposalResponse.getPeer()));
+                    throw new InvalidArgumentException(format("proposalResponse.getPayloadBytes() was empty from peer: %s.", proposalResponse.getPeer()));
                 }
                 Set<ProposalResponse> set = ret.computeIfAbsent(payloadBytes, k -> new HashSet<>());
                 set.add(proposalResponse);

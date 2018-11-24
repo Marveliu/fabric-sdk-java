@@ -142,22 +142,20 @@ public class EventHub implements Serializable {
 
     private long lastConnectedAttempt;
 
+    // manage event
     EventHub(String name, String grpcURL, ExecutorService executorService, Properties properties) throws InvalidArgumentException {
-
         Exception e = checkGrpcUrl(grpcURL);
         if (e != null) {
             throw new InvalidArgumentException("Bad event hub url.", e);
-
         }
-
         if (StringUtil.isNullOrEmpty(name)) {
             throw new InvalidArgumentException("Invalid name for eventHub");
         }
-
         this.url = grpcURL;
         this.name = name;
         this.executorService = executorService;
-        this.properties = properties == null ? null : (Properties) properties.clone(); //keep our own copy.
+        // keep our own copy.
+        this.properties = properties == null ? null : (Properties) properties.clone();
         logger.debug("Created " + toString());
     }
 
@@ -200,6 +198,14 @@ public class EventHub implements Serializable {
         return connect(transactionContext, false);
     }
 
+    /**
+     * event hub client 连接到远程
+     *
+     * @param transactionContext
+     * @param reconnection
+     * @return
+     * @throws EventHubException
+     */
     synchronized boolean connect(final TransactionContext transactionContext, final boolean reconnection) throws EventHubException {
         if (connected) {
             logger.warn(format("%s already connected.", toString()));
@@ -208,19 +214,15 @@ public class EventHub implements Serializable {
         eventStream = null;
 
         final CountDownLatch finishLatch = new CountDownLatch(1);
-
         logger.debug(format("%s is connecting.", toString()));
-
         lastConnectedAttempt = System.currentTimeMillis();
 
         Endpoint endpoint = Endpoint.createEndpoint(url, properties);
         managedChannel = endpoint.getChannelBuilder().build();
-
         clientTLSCertificateDigest = endpoint.getClientTLSCertificateDigest();
 
         // EventStub
         events = EventsGrpc.newStub(managedChannel);
-
         final ArrayList<Throwable> threw = new ArrayList<>();
 
         // 很熟悉的client grpc
@@ -229,35 +231,29 @@ public class EventHub implements Serializable {
             public void onNext(PeerEvents.Event event) {
 
                 logger.debug(format("%s got  event type: %s", EventHub.this.toString(), event.getEventCase().name()));
-
                 if (event.getEventCase() == PeerEvents.Event.EventCase.BLOCK) {
                     try {
-
                         BlockEvent blockEvent = new BlockEvent(EventHub.this, event);
-
                         logger.trace(format("%s got block number: %d", EventHub.this.toString(), blockEvent.getBlockNumber()));
                         setLastBlockSeen(blockEvent);
-
-                        eventQue.addBEvent(blockEvent);  //add to channel queue
+                        // add to channel queue
+                        eventQue.addBEvent(blockEvent);
                     } catch (InvalidProtocolBufferException e) {
                         EventHubException eventHubException = new EventHubException(format("%s onNext error %s", this, e.getMessage()), e);
                         logger.error(eventHubException.getMessage());
                         threw.add(eventHubException);
                     }
                 } else if (event.getEventCase() == PeerEvents.Event.EventCase.REGISTER) {
-
+                    // EventHub 重连
                     if (reconnectCount > 1) {
                         logger.info(format("%s has reconnecting after %d attempts", EventHub.this.toString(), reconnectCount));
                     }
-
                     connected = true;
                     connectedTime = System.currentTimeMillis();
                     reconnectCount = 0L;
-
                     finishLatch.countDown();
                 } else {
-                    logger.error(format("%s got a unexpected block type: %s",
-                            EventHub.this.toString(), event.getEventCase().name()));
+                    logger.error(format("%s got a unexpected block type: %s", EventHub.this.toString(), event.getEventCase().name()));
                 }
             }
 
@@ -266,29 +262,25 @@ public class EventHub implements Serializable {
                 connected = false;
                 eventStream = null;
                 disconnectedTime = System.currentTimeMillis();
-                if (shutdown) { //IF we're shutdown don't try anything more.
+                if (shutdown) {
+                    // IF we're shutdown don't try anything more.
                     logger.trace(format("%s was shutdown.", EventHub.this.toString()));
-
                     finishLatch.countDown();
                     return;
                 }
 
                 final ManagedChannel lmanagedChannel = managedChannel;
-
                 final boolean isTerminated = lmanagedChannel == null ? true : lmanagedChannel.isTerminated();
                 final boolean isChannelShutdown = lmanagedChannel == null ? true : lmanagedChannel.isShutdown();
 
                 if (EVENTHUB_RECONNECTION_WARNING_RATE > 1 && reconnectCount % EVENTHUB_RECONNECTION_WARNING_RATE == 1) {
-                    logger.warn(format("%s terminated is %b shutdown is %b, retry count %d  has error %s.", EventHub.this.toString(), isTerminated, isChannelShutdown,
-                            reconnectCount, t.getMessage()));
+                    logger.warn(format("%s terminated is %b shutdown is %b, retry count %d  has error %s.", EventHub.this.toString(), isTerminated, isChannelShutdown, reconnectCount, t.getMessage()));
                 } else {
-                    logger.trace(format("%s terminated is %b shutdown is %b, retry count %d  has error %s.", EventHub.this.toString(), isTerminated, isChannelShutdown,
-                            reconnectCount, t.getMessage()));
+                    logger.trace(format("%s terminated is %b shutdown is %b, retry count %d  has error %s.", EventHub.this.toString(), isTerminated, isChannelShutdown, reconnectCount, t.getMessage()));
                 }
-
                 finishLatch.countDown();
 
-                //              logger.error("Error in stream: " + t.getMessage(), new EventHubException(t));
+                // logger.error("Error in stream: " + t.getMessage(), new EventHubException(t));
                 if (t instanceof StatusRuntimeException) {
                     StatusRuntimeException sre = (StatusRuntimeException) t;
                     Status sreStatus = sre.getStatus();
@@ -297,27 +289,23 @@ public class EventHub implements Serializable {
                     } else {
                         logger.trace(format("%s :StatusRuntimeException Status %s.  Description %s ", EventHub.this, sreStatus + "", sreStatus.getDescription()));
                     }
-
                     try {
                         reconnect();
                     } catch (Exception e) {
                         logger.warn(format("%s Failed shutdown msg:  %s", EventHub.this.toString(), e.getMessage()));
                     }
-
                 }
-
             }
 
             @Override
             public void onCompleted() {
-
                 logger.debug(format("Stream completed %s", EventHub.this.toString()));
                 finishLatch.countDown();
-
             }
         };
 
         sender = events.chat(eventStreamLocal);
+
         try {
             blockListen(transactionContext);
         } catch (Exception e) {
@@ -325,29 +313,21 @@ public class EventHub implements Serializable {
         }
 
         try {
-
-            //On reconnection don't wait here.
-
+            // On reconnection don't wait here.
             if (!reconnection && !finishLatch.await(EVENTHUB_CONNECTION_WAIT_TIME, TimeUnit.MILLISECONDS)) {
-
                 logger.warn(format("%s failed to connect in %s ms.", toString(), EVENTHUB_CONNECTION_WAIT_TIME));
-
             } else {
                 logger.trace(format("%s done waiting for reply!", toString()));
             }
-
         } catch (InterruptedException e) {
             logger.error(e);
         }
 
         logger.debug(format("%s connect is done with connect status: %b ", toString(), connected));
-
         if (connected) {
             eventStream = eventStreamLocal;
         }
-
         return connected;
-
     }
 
     private void reconnect() throws EventHubException {
@@ -368,10 +348,17 @@ public class EventHub implements Serializable {
 
     }
 
+
+    /**
+     * event注册请求
+     *
+     * @param transactionContext
+     * @throws CryptoException
+     * @throws InvalidArgumentException
+     */
     private void blockListen(TransactionContext transactionContext) throws CryptoException, InvalidArgumentException {
 
         this.transactionContext = transactionContext;
-
         PeerEvents.Register register = PeerEvents.Register.newBuilder()
                 .addEvents(PeerEvents.Interest.newBuilder().setEventType(PeerEvents.EventType.BLOCK).build()).build();
         PeerEvents.Event.Builder blockEventBuilder = PeerEvents.Event.newBuilder().setRegister(register)

@@ -39,9 +39,9 @@ class EndorserClient {
     private static final Log logger = LogFactory.getLog(EndorserClient.class);
     private static final boolean IS_TRACE_LEVEL = logger.isTraceEnabled();
 
-    //    private final String channelName;
-//    private final String name;
-//    private final String url;
+    // private final String channelName;
+    // private final String name;
+    // private final String url;
     private ManagedChannel managedChannel;
     private EndorserGrpc.EndorserFutureStub futureStub;
     private DiscoveryGrpc.DiscoveryFutureStub discoveryFutureStub;
@@ -117,10 +117,18 @@ class EndorserClient {
         return futureStub.processProposal(proposal);
     }
 
+    /**
+     * EndorseClient 发送请求
+     *
+     * @param signedRequest
+     * @return
+     * @throws PeerException
+     */
     public ListenableFuture<Protocol.Response> sendDiscoveryRequestAsync(Protocol.SignedRequest signedRequest) throws PeerException {
         if (shutdown) {
             throw new PeerException("Shutdown " + toString());
         }
+        // grpc短链接
         return discoveryFutureStub.discover(signedRequest);
     }
 

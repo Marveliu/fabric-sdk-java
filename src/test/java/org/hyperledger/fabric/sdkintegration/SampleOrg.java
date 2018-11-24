@@ -26,9 +26,8 @@ import org.hyperledger.fabric_ca.sdk.HFCAClient;
 
 /**
  * Sample Organization Representation
- *
+ * <p>
  * Keeps track which resources are defined for the Organization it represents.
- *
  */
 public class SampleOrg {
     final String name;
@@ -121,7 +120,6 @@ public class SampleOrg {
     }
 
     public Set<String> getEventHubNames() {
-
         return Collections.unmodifiableSet(eventHubLocations.keySet());
     }
 

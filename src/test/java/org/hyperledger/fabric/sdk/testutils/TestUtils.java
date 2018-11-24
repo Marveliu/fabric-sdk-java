@@ -280,8 +280,8 @@ public class TestUtils {
      * @param channel
      */
     public static void testRemovingAddingPeersOrderers(HFClient client, Channel channel) {
-        Map<Peer, Channel.PeerOptions> perm = new HashMap<>();
 
+        Map<Peer, Channel.PeerOptions> perm = new HashMap<>();
         assertTrue(channel.isInitialized());
         assertFalse(channel.isShutdown());
 
@@ -312,7 +312,6 @@ public class TestUtils {
         });
 
         List<Orderer> removedOrders = new ArrayList<>();
-
         for (Orderer orderer : channel.getOrderers()) {
             try {
                 channel.removeOrderer(orderer);
